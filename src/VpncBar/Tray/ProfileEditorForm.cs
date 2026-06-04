@@ -60,6 +60,12 @@ sealed class ProfileEditorForm : Form
     readonly ThemedCombo _ocDebug = new();
 
     Panel _credsVpnc = null!, _credsOc = null!, _optsVpnc = null!, _optsOc = null!;
+    TabControl _tabs = null!;
+    ThemedButton _connect = null!;
+    TextBox _debugLog = null!;
+    readonly System.Windows.Forms.Timer _stateTimer = new() { Interval = 2000 };   // Connect-button label
+    readonly System.Windows.Forms.Timer _tailTimer = new() { Interval = 250 };     // Debug-tab tail (~4×/s)
+    long _logLength = -1;   // last tailed file size (skip re-reads when unchanged)
 
     bool IsOc => (string)_type.SelectedItem! == "openconnect";
 
@@ -87,11 +93,12 @@ sealed class ProfileEditorForm : Form
         typeRow.Controls.Add(_type);
 
         // --- Tabs ---
-        var tabs = new TabControl { Dock = DockStyle.Fill };
-        tabs.TabPages.Add(BuildCredentialsTab());
-        tabs.TabPages.Add(BuildOptionsTab());
-        tabs.TabPages.Add(PlaceholderTab("Info", "Live tunnel state appears here while connected.\n(Arrives with the service in phase 2.)"));
-        tabs.TabPages.Add(PlaceholderTab("Debug", "The session log is tailed here while this tab is visible.\n(Arrives with the service in phase 2.)"));
+        _tabs = new TabControl { Dock = DockStyle.Fill };
+        _tabs.TabPages.Add(BuildCredentialsTab());
+        _tabs.TabPages.Add(BuildOptionsTab());
+        _tabs.TabPages.Add(PlaceholderTab("Info", "Live tunnel state appears here while connected.\n(Arrives with the network config in phase 3.)"));
+        _tabs.TabPages.Add(BuildDebugTab());
+        _tabs.SelectedIndexChanged += (_, _) => UpdateLogTailing();
 
         // --- Bottom buttons ---
         var bottom = new FlowLayoutPanel
@@ -105,17 +112,18 @@ sealed class ProfileEditorForm : Form
         save.Click += (_, _) => SaveProfile();
         var cancel = new ThemedButton { Text = "Cancel", AutoSize = true };
         cancel.Click += (_, _) => Close();
-        var connect = new ThemedButton { Text = "Connect", AutoSize = true, Enabled = false };
-        _tips.SetToolTip(connect, "Available once the service exists (phase 2)");
+        _connect = new ThemedButton { Text = "Connect", AutoSize = true, Enabled = existing != null };
+        if (existing == null) _tips.SetToolTip(_connect, "Save the profile first");
+        _connect.Click += (_, _) => ToggleConnect();
         bottom.Controls.Add(save);
         bottom.Controls.Add(cancel);
         var spacer = new Panel { Width = 120, Height = 1 };
         bottom.Controls.Add(spacer);
-        bottom.Controls.Add(connect);
+        bottom.Controls.Add(_connect);
         AcceptButton = save;
         CancelButton = cancel;
 
-        Controls.Add(tabs);
+        Controls.Add(_tabs);
         Controls.Add(typeRow);
         Controls.Add(bottom);
 
@@ -125,6 +133,153 @@ sealed class ProfileEditorForm : Form
         ApplyAuthmode();
         Theme.Polish(this);
         ActiveControl = _name;   // don't open with the Type combo focus-highlighted
+
+        // Track the live tunnel state: Connect/Disconnect button label (mac
+        // parity) — polled off the UI thread so a slow pipe never stutters it.
+        if (existing != null)
+        {
+            _stateTimer.Tick += (_, _) => PollState();
+            _stateTimer.Start();
+            PollState();
+        }
+        _tailTimer.Tick += (_, _) => TailLog();
+        FormClosed += (_, _) => { _stateTimer.Stop(); _tailTimer.Stop(); };
+    }
+
+    // ----- live state (Connect button) -----
+
+    bool _polling;
+    bool _connected;
+
+    void PollState()
+    {
+        if (_polling || _existing == null) return;
+        _polling = true;
+        Task.Run(() =>
+        {
+            var up = Ipc.TunnelClient.Status([_existing]).ContainsKey(_existing.Name);
+            try
+            {
+                BeginInvoke(() =>
+                {
+                    _polling = false;
+                    _connected = up;
+                    _connect.Text = up ? "Disconnect" : "Connect";
+                });
+            }
+            catch (InvalidOperationException) { _polling = false; /* form closed */ }
+        });
+    }
+
+    void ToggleConnect()
+    {
+        if (_existing == null) return;
+        var p = _existing;
+        bool up = _connected;
+        _connect.Enabled = false;
+        Task.Run(() =>
+        {
+            var err = up ? Ipc.TunnelClient.Disconnect(p) : Ipc.TunnelClient.Connect(p);
+            try
+            {
+                BeginInvoke(() =>
+                {
+                    _connect.Enabled = true;
+                    PollState();
+                    _onSaved();   // poke the tray to refresh its menu/icon
+                    if (err != null)
+                        MessageBox.Show(this, err, "VpncBar", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                });
+            }
+            catch (InvalidOperationException) { /* form closed */ }
+        });
+    }
+
+    // ----- Debug tab (live log tail) -----
+
+    TabPage BuildDebugTab()
+    {
+        var page = new TabPage("Debug");
+        _debugLog = new TextBox
+        {
+            Multiline = true,
+            ReadOnly = true,
+            WordWrap = false,
+            ScrollBars = ScrollBars.Both,
+            Dock = DockStyle.Fill,
+            Font = new Font("Consolas", 9f),
+            BorderStyle = BorderStyle.None,
+        };
+        var buttons = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Bottom,
+            FlowDirection = FlowDirection.LeftToRight,
+            AutoSize = true,
+            Padding = new Padding(4),
+        };
+        var clear = new ThemedButton { Text = "Clear log", AutoSize = true };
+        clear.Click += (_, _) => ClearLog();
+        var reveal = new ThemedButton { Text = "Reveal log", AutoSize = true };
+        reveal.Click += (_, _) =>
+        {
+            if (_existing != null && File.Exists(Paths.LogFile(_existing)))
+                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{Paths.LogFile(_existing)}\"");
+        };
+        buttons.Controls.Add(clear);
+        buttons.Controls.Add(reveal);
+        page.Controls.Add(_debugLog);
+        page.Controls.Add(buttons);
+        return page;
+    }
+
+    // Tail only while the Debug tab is actually visible (mac parity, ~4×/s).
+    void UpdateLogTailing()
+    {
+        bool debugVisible = _tabs.SelectedTab?.Text == "Debug" && _existing != null;
+        if (debugVisible) { _logLength = -1; _tailTimer.Start(); TailLog(); }
+        else _tailTimer.Stop();
+    }
+
+    void TailLog()
+    {
+        if (_existing == null) return;
+        var path = Paths.LogFile(_existing);
+        try
+        {
+            var info = new FileInfo(path);
+            if (!info.Exists) { if (_logLength != 0) { _debugLog.Text = ""; _logLength = 0; } return; }
+            if (info.Length == _logLength) return;
+            _logLength = info.Length;
+
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            const int cap = 64 * 1024;   // show at most the last 64 KB
+            if (fs.Length > cap) fs.Seek(-cap, SeekOrigin.End);
+            using var reader = new StreamReader(fs);
+            var text = reader.ReadToEnd();
+            _debugLog.Text = text;
+            _debugLog.SelectionStart = _debugLog.TextLength;
+            _debugLog.ScrollToCaret();
+        }
+        catch (IOException) { /* transient share conflict; retry next tick */ }
+    }
+
+    void ClearLog()
+    {
+        if (_existing == null) return;
+        try
+        {
+            // The service's writer holds the file open (FileShare.Read), so
+            // truncation can fail while connected — phase 3 adds a clear-log
+            // op to the pipe so the writer truncates its own file.
+            File.WriteAllText(Paths.LogFile(_existing), "");
+            _logLength = -1;
+            TailLog();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            MessageBox.Show(this, "Can't clear the log while its tunnel is connected.",
+                            "VpncBar", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
     }
 
     // ----- layout helpers -----
