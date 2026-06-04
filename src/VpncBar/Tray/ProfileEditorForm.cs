@@ -17,7 +17,7 @@ sealed class ProfileEditorForm : Form
     readonly Action _onSaved;
     readonly ToolTip _tips = new();
 
-    readonly ComboBox _type = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+    readonly ThemedCombo _type = new();
 
     // Shared credentials (synced across the two type-specific panels on switch).
     readonly TextBox _name = new();
@@ -30,34 +30,34 @@ sealed class ProfileEditorForm : Form
     // vpnc credentials
     readonly TextBox _group = new();
     readonly TextBox _secret = new() { UseSystemPasswordChar = true };
-    readonly ComboBox _authmode = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+    readonly ThemedCombo _authmode = new();
     readonly TextBox _caFile = new();
 
     // openconnect credentials
-    readonly ComboBox _ocGroup = new();   // editable; "Fetch groups" fills it in phase 3
+    readonly TextBox _ocGroup = new();   // free text; "Fetch groups" (phase 3) adds a picker
     readonly TextBox _ocServerCert = new();
     readonly CheckBox _ocOtp = new() { Text = "Ask for one-time code (2FA) on connect", AutoSize = true };
 
     // vpnc options
-    readonly ComboBox _dh = new() { DropDownStyle = ComboBoxStyle.DropDownList };
-    readonly ComboBox _pfs = new() { DropDownStyle = ComboBoxStyle.DropDownList };
-    readonly ComboBox _nat = new() { DropDownStyle = ComboBoxStyle.DropDownList };
-    readonly ComboBox _vendor = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+    readonly ThemedCombo _dh = new();
+    readonly ThemedCombo _pfs = new();
+    readonly ThemedCombo _nat = new();
+    readonly ThemedCombo _vendor = new();
     readonly TextBox _mtu = new() { PlaceholderText = "auto" };
     readonly TextBox _dpd = new() { PlaceholderText = "30" };
-    readonly ComboBox _debug = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+    readonly ThemedCombo _debug = new();
     readonly CheckBox _weak = new() { Text = "Enable weak encryption (3DES)", AutoSize = true, Checked = true };
     readonly CheckBox _singleDes = new() { Text = "Enable Single DES", AutoSize = true };
     readonly CheckBox _noEnc = new() { Text = "Enable no encryption", AutoSize = true };
     readonly CheckBox _weakAuth = new() { Text = "Enable weak authentication", AutoSize = true };
 
     // openconnect options
-    readonly ComboBox _ocProto = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+    readonly ThemedCombo _ocProto = new();
     readonly CheckBox _ocNoDtls = new() { Text = "Disable DTLS (force TLS transport)", AutoSize = true };
     readonly TextBox _ocDpd = new() { PlaceholderText = "gateway-negotiated" };
     readonly TextBox _ocMtu = new() { PlaceholderText = "auto" };
     readonly TextBox _ocReconnect = new() { PlaceholderText = "300" };
-    readonly ComboBox _ocDebug = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+    readonly ThemedCombo _ocDebug = new();
 
     Panel _credsVpnc = null!, _credsOc = null!, _optsVpnc = null!, _optsOc = null!;
 
@@ -70,7 +70,7 @@ sealed class ProfileEditorForm : Form
 
         Text = existing == null ? "New VPN" : $"Edit VPN — {existing.Name}";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(520, 560);
+        MinimumSize = new Size(520, 620);
         Size = MinimumSize;
         MaximizeBox = false;
         ShowInTaskbar = true;
@@ -344,7 +344,7 @@ sealed class ProfileEditorForm : Form
         if (Profile.Ne(p.Authmode) is string am && _authmode.Items.Contains(am)) _authmode.SelectedItem = am;
         _caFile.Text = p.CaFile ?? "";
 
-        void Sel(ComboBox cb, string? v) { if (Profile.Ne(v) is string s && cb.Items.Contains(s)) cb.SelectedItem = s; }
+        void Sel(ThemedCombo cb, string? v) { if (Profile.Ne(v) is string s && cb.Items.Contains(s)) cb.SelectedItem = s; }
         Sel(_dh, p.DhGroup);
         Sel(_pfs, p.Pfs);
         Sel(_nat, p.NatMode);
@@ -381,9 +381,9 @@ sealed class ProfileEditorForm : Form
 
         // A combo selection equal to the backend's default is stored as null —
         // "directive omitted" — keeping profiles.json minimal and mac-compatible.
-        static string? Def(ComboBox cb, string def)
+        static string? Def(ThemedCombo cb, string def)
         {
-            var v = (string?)cb.SelectedItem;
+            var v = cb.SelectedItem;
             return v == def ? null : v;
         }
 
