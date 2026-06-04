@@ -21,8 +21,11 @@ static class Paths
 
     // "<uuid>_<name>.log" — the per-profile session log the service writes by
     // redirecting the backend child's stdout/stderr (Debug tab tails this).
-    public static string LogFile(Profile p) =>
-        Path.Combine(RunDir, $"{p.Uuid ?? p.Name}_{SafeName(p.Name)}.log");
+    public static string LogFile(Profile p) => LogFile(p.Uuid ?? p.Name, p.Name);
+    public static string LogFile(string uuid, string name) =>
+        Path.Combine(RunDir, $"{uuid}_{SafeName(name)}.log");
+
+    public static string ServiceLog => Path.Combine(ProgramDataDir, "service.log");
 
     // Per-tunnel runtime info written in --script mode on connect (Info tab).
     public static string InfoFile(Profile p) => Path.Combine(RunDir, $"{p.Uuid ?? p.Name}.info");

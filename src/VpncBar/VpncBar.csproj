@@ -16,4 +16,9 @@
     <!-- Single exe, three modes: tray (default) | service | script. See docs/PORTING.md §3. -->
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Windows-service hosting for the same exe's service mode -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.*" />
+  </ItemGroup>
+
 </Project>

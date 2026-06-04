@@ -72,7 +72,6 @@ sealed class DotsButton : Control
 sealed class EyeButton : Control
 {
     readonly TextBox _tb;
-    bool _hover;
 
     public EyeButton(TextBox tb)
     {
@@ -90,9 +89,6 @@ sealed class EyeButton : Control
         Invalidate();
         base.OnClick(e);
     }
-
-    protected override void OnMouseEnter(EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
-    protected override void OnMouseLeave(EventArgs e) { _hover = false; Invalidate(); base.OnMouseLeave(e); }
 
     protected override void OnPaint(PaintEventArgs e)
     {

@@ -19,9 +19,9 @@ static class Program
             case "--script":
                 return ScriptMode.Run(args);
             case "--install-service":
+                return Service.ServiceInstaller.Install();
             case "--uninstall-service":
-                Console.Error.WriteLine("service install/uninstall: not implemented yet (phase 2)");
-                return 1;
+                return Service.ServiceInstaller.Uninstall();
             case "--ui-demo":   // dev aid: open the profile editor directly (UI iteration/screenshots)
                 ApplicationConfiguration.Initialize();
                 Application.SetColorMode(SystemColorMode.System);
