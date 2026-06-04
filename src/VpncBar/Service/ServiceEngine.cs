@@ -2,25 +2,37 @@ using VpncBar.Core;
 
 namespace VpncBar.Service;
 
-// The privileged engine: tunnel manager + pipe server lifecycle. Hosted by
-// the Windows service (normal case) or run inline by `--service --console`
-// for development. Stop() tears down every tunnel — the service-stop /
-// shutdown half of the "never orphan tunnels" guarantee.
+// The privileged engine: tunnel manager + pipe server + owner watcher.
+// Lifetime is tied to the tray (the "always stop with tray" model): when the
+// owning tray process exits for any reason, the watcher fires requestStop,
+// which tears down all tunnels and stops the service.
 sealed class ServiceEngine
 {
     readonly CancellationTokenSource _cts = new();
     TunnelManager? _manager;
+    OwnerWatcher? _watcher;
     Task? _serverTask;
+    Action? _requestStop;
 
-    public void Start()
+    // requestStop: ask the host (Windows service / console) to stop us — the
+    // SCM stop then runs Stop() below (disconnect-all + cleanup).
+    public void Start(Action requestStop)
     {
+        _requestStop = requestStop;
         Directory.CreateDirectory(Paths.RunDir);
-        // No tunnel can be up at service start (children die with the
-        // service), so any VpncBar NRPT rule is an orphan from a crash.
-        NetConfig.SweepNrptRules(Log);
+        NetConfig.SweepNrptRules(Log);   // clear any orphan rules from a crash
         _manager = new TunnelManager(Log);
-        _serverTask = new PipeServer(_manager, Log).RunAsync(_cts.Token);
+        _watcher = new OwnerWatcher(onOrphaned: OnOrphaned, Log);
+        _watcher.StartGraceTimer();
+        _serverTask = new PipeServer(_manager, _watcher, Log).RunAsync(_cts.Token);
         Log("service started");
+    }
+
+    void OnOrphaned()
+    {
+        // The owning tray is gone — disconnect everything, then ask to stop.
+        _manager?.DisconnectAll();
+        _requestStop?.Invoke();
     }
 
     public void Stop()

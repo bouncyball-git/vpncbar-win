@@ -35,6 +35,13 @@ static class TunnelClient
 
     public static bool ServiceAvailable => Call(new("status"), 250) != null;
 
+    // Tie the service's lifetime to this tray process (the service watches the
+    // PID and stops when we exit — see OwnerWatcher). Called once at launch.
+    public static void RegisterOwner()
+    {
+        Call(new("own", Pid: Environment.ProcessId), 2000);
+    }
+
     // Connected profiles → connected-since, keyed by profile name (what the
     // menu displays). Short timeout: this runs on the 5s poll and menu-open.
     public static Dictionary<string, DateTime> Status(IReadOnlyList<Profile> profiles)
@@ -79,11 +86,18 @@ static class TunnelClient
                 ClientCert: p.ClientCert,
                 MatchDomains: p.DnsMatchDomains);
         }
+        else if (p.Gateway == "stub")
+        {
+            kind = "stub";   // dev backend (gateway literally "stub")
+        }
         else
         {
-            // "stub" is the dev backend (gateway literally "stub"); real vpnc
-            // profiles wait for phase 4 (the service explains).
-            kind = p.Gateway == "stub" ? "stub" : "vpnc";
+            kind = "vpnc";
+            // The tray builds the vpnc.conf (it can read the Credential Manager;
+            // the service can't). The service appends only the Script directive.
+            var built = VpncConfig.Build(p);
+            if (built.Error != null) return built.Error;
+            stdin = built.ConfigText;
         }
 
         var req = new PipeRequest("connect",
@@ -91,8 +105,9 @@ static class TunnelClient
             Name: p.Name,
             Kind: kind,
             Stdin: stdin,
-            Oc: oc);
-        var resp = Call(req, 15000);   // openconnect auth can take a while
+            Oc: oc,
+            MatchDomains: p.IsOpenconnect ? null : p.DnsMatchDomains);
+        var resp = Call(req, 20000);   // IKE / SSL auth can take a while
         if (resp == null) return NoService;
         return resp.Ok ? null : resp.Error ?? "connect failed";
     }
@@ -116,7 +131,7 @@ static class TunnelClient
     // Mirrors TunnelManager.OpenconnectPsi — keep the two in sync.
     public static string CommandLine(Profile p)
     {
-        if (!p.IsOpenconnect) return "(vpnc — arrives in phase 4)";
+        if (!p.IsOpenconnect) return VpncConfig.CommandLine();
         var a = new List<string>
         {
             "openconnect",

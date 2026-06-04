@@ -1,0 +1,34 @@
+# Native Windows (mingw-w64 / MSYS2) build of vpnc — VpncBar port.
+# Run from this directory in a MINGW64 shell:  make -f Makefile.win32 -j8
+# Requires: mingw-w64-x86_64-{gcc,libgcrypt,gnutls,pkgconf}, perl, make,
+# and vendor/wintun/wintun.h two levels up.
+
+CC = gcc
+VERSION = 0.5.3-win
+
+CFLAGS ?= -O2 -W -Wall -Wno-unused-parameter -Wno-missing-field-initializers \
+          -Wno-incompatible-pointer-types -Wno-pointer-sign -Wno-format
+CPPFLAGS = -DVERSION=\"$(VERSION)\" -DCRYPTO_GNUTLS -DSCRIPT_PATH=\"vpncbar-script\" \
+           -I. -Iwin32 -I../../wintun \
+           $(shell libgcrypt-config --cflags) \
+           $(shell pkg-config --cflags gnutls)
+LDLIBS = $(shell libgcrypt-config --libs) \
+         $(shell pkg-config --libs gnutls) \
+         -lws2_32 -liphlpapi
+
+OBJS = sysdep-win.o vpnc-debug.o isakmp-pkt.o tunip.o config.o dh.o \
+       math_group.o supp.o decrypt-utils.o crypto.o crypto-gnutls.o vpnc.o
+
+vpnc.exe : $(OBJS)
+	$(CC) -o $@ $(OBJS) $(LDLIBS)
+
+vpnc-debug.c vpnc-debug.h : isakmp.h enum2debug.pl
+	LC_ALL=C perl -w ./enum2debug.pl isakmp.h >vpnc-debug.c 2>vpnc-debug.h
+
+%.o : %.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
+
+clean :
+	rm -f $(OBJS) vpnc.exe vpnc-debug.c vpnc-debug.h
+
+.PHONY : clean

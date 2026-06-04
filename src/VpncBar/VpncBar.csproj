@@ -32,6 +32,9 @@
     <!-- Bundled backends → output\openconnect\ (wintun.dll beside the exe so it loads it) -->
     <None Include="..\..\vendor\openconnect\bin\**" LinkBase="openconnect" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\vendor\wintun\bin\amd64\wintun.dll" Link="openconnect\wintun.dll" CopyToOutputDirectory="PreserveNewest" />
+    <!-- vpnc backend → output\vpnc\ (wintun.dll beside it too) -->
+    <None Include="..\..\vendor\vpnc\bin\**" LinkBase="vpnc" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\vendor\wintun\bin\amd64\wintun.dll" Link="vpnc\wintun.dll" CopyToOutputDirectory="PreserveNewest" />
     <None Include="assets\vpncbar-script.js" Link="vpncbar-script.js" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

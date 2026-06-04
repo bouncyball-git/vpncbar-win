@@ -1,0 +1,50 @@
+#!/bin/sh
+# vpnc-disconnect [pidfile | pid | sweep]
+#
+# Terminate a vpnc daemon. The argument may be a pidfile path (default
+# /var/run/vpnc/pid) OR a numeric PID. Accepting an argument lets a front-end
+# run several tunnels at once and disconnect them individually.
+#
+# "sweep" instead removes config left behind by a vpnc that died WITHOUT running
+# its disconnect (crash / kill -9): scoped DNS and routes bound to a utun
+# interface that no longer exists. A clean disconnect already undoes its own.
+
+if [ "$1" = "sweep" ]; then
+	# Orphaned scoped DNS (dynamic-store entries for vanished utun interfaces).
+	for k in `echo 'list State:/Network/Service/[^/]+/DNS' | scutil 2>/dev/null | grep -oE 'State:/Network/Service/utun[0-9]+/DNS'`; do
+		dev=`echo "$k" | sed -E 's#.*/(utun[0-9]+)/DNS#\1#'`
+		ifconfig "$dev" >/dev/null 2>&1 || printf 'open\nremove %s\nclose\n' "$k" | scutil >/dev/null 2>&1
+	done
+	# Orphaned IPv4 routes whose interface is a utun that no longer exists.
+	netstat -rn -f inet 2>/dev/null | awk '$NF ~ /^utun[0-9]+$/ { print $1, $NF }' | while read net dev; do
+		ifconfig "$dev" >/dev/null 2>&1 || route -n delete "$net" >/dev/null 2>&1
+	done
+	exit 0
+fi
+
+arg="${1:-/var/run/vpnc/pid}"
+
+case "$arg" in
+	'' | *[!0-9]*) PID="$(cat "$arg" 2>/dev/null)" ;;  # not all digits -> pidfile path
+	*)             PID="$arg" ;;                        # all digits -> a PID
+esac
+
+if [ -z "$PID" ]; then
+	echo "no vpnc found running"
+	exit 1
+fi
+
+if ! kill -0 "$PID" >/dev/null 2>&1; then
+	echo "no vpnc found running"
+	exit 1
+fi
+
+# Safety: only signal the PID if it really is a vpnc OR openconnect process
+# (VpncBar uses this for both backends; openconnect tears down via SIGTERM too).
+if ! ps -p "$PID" -o comm= 2>/dev/null | grep -qE 'vpnc|openconnect'; then
+	echo "pid $PID is not a vpnc/openconnect process; refusing to kill" 1>&2
+	exit 1
+fi
+
+echo "Terminating VPN daemon (pid: $PID)"
+exec kill "$PID"

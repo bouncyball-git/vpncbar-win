@@ -15,9 +15,11 @@ static class ServiceMode
         {
             // Dev mode: engine inline, runs until the process is stopped.
             var engine = new ServiceEngine();
-            engine.Start();
+            using var idle = new ManualResetEventSlim(false);
+            engine.Start(requestStop: () => idle.Set());
             AppDomain.CurrentDomain.ProcessExit += (_, _) => engine.Stop();
-            Thread.Sleep(Timeout.Infinite);
+            idle.Wait();   // released when the owner tray is gone
+            engine.Stop();
             return 0;
         }
 
@@ -35,7 +37,8 @@ static class ServiceMode
             CanShutdown = true;   // OnShutdown → tunnels torn down on system shutdown
         }
 
-        protected override void OnStart(string[] args) => _engine.Start();
+        // requestStop runs Stop() through the SCM, so OnStop does the teardown.
+        protected override void OnStart(string[] args) => _engine.Start(requestStop: Stop);
         protected override void OnStop() => _engine.Stop();
         protected override void OnShutdown() => _engine.Stop();
     }

@@ -13,12 +13,24 @@ static class ServiceInstaller
     {
         if (!IsAdmin()) return Fail("--install-service must run from an elevated (Administrator) terminal.");
         var exe = Environment.ProcessPath!;
-        // sc.exe quirk: the space after each option= is required.
-        if (Sc($"create {ServiceName} binPath= \"\\\"{exe}\\\" --service\" start= auto obj= LocalSystem DisplayName= \"VpncBar Service\"") != 0)
-            return 1;
+        var bin = $"binPath= \"\\\"{exe}\\\" --service\"";
+        // Demand-start: the tray starts/stops the service; it is NOT running at
+        // boot. Idempotent — reconfigure if it already exists.
+        bool exists = Sc($"query {ServiceName}", quiet: true) == 0;
+        var verb = exists
+            ? $"config {ServiceName} {bin} start= demand obj= LocalSystem"
+            : $"create {ServiceName} {bin} start= demand obj= LocalSystem DisplayName= \"VpncBar Service\"";
+        if (Sc(verb) != 0) return 1;
         Sc($"description {ServiceName} \"VpncBar tunnel engine: runs VPN backends, routes and split DNS.\"");
-        if (Sc($"start {ServiceName}") != 0) return 1;
-        Console.Error.WriteLine("VpncBar service installed and started.");
+
+        // Grant Authenticated Users the right to start/stop/query the service,
+        // so the non-elevated tray can manage its lifetime. SDDL: SYSTEM and
+        // Builtin Admins keep full control; AU gets start(RP)/stop(WP)/query.
+        const string sddl =
+            "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWRPWPLORC;;;AU)";
+        if (Sc($"sdset {ServiceName} {sddl}") != 0) return 1;
+
+        Console.Error.WriteLine("VpncBar service installed (demand-start, tray-controlled).");
         return 0;
     }
 
@@ -31,7 +43,7 @@ static class ServiceInstaller
         return 0;
     }
 
-    static int Sc(string args)
+    static int Sc(string args, bool quiet = false)
     {
         var p = Process.Start(new ProcessStartInfo
         {
@@ -44,7 +56,8 @@ static class ServiceInstaller
         })!;
         var output = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
         p.WaitForExit();
-        if (p.ExitCode != 0) Console.Error.WriteLine($"sc {args.Split(' ')[0]} failed ({p.ExitCode}):\n{output.Trim()}");
+        if (p.ExitCode != 0 && !quiet)
+            Console.Error.WriteLine($"sc {args.Split(' ')[0]} failed ({p.ExitCode}):\n{output.Trim()}");
         return p.ExitCode;
     }
 

@@ -43,9 +43,16 @@ sealed class TrayContext : ApplicationContext
         _poll.Tick += (_, _) => RefreshState();
         _poll.Start();
 
-        // Mac parity: tear down all tunnels when the tray session ends (logoff/
-        // shutdown). Quit goes through ExitThread below; crash is the exemption.
-        Application.ApplicationExit += (_, _) => TunnelClient.DisconnectAll();
+        // Lifetime model: bring the service up (it's demand-start) and register
+        // ourselves as its owner, so it stops when this tray exits — by clean
+        // quit, logoff, OR crash (the service watches our process handle). Done
+        // off the UI thread so a slow service start doesn't delay the icon.
+        Task.Run(() =>
+        {
+            Ipc.ServiceControl.EnsureRunning();
+            TunnelClient.RegisterOwner();
+            BeginInvoke(RefreshState);
+        });
 
         RefreshState();
     }
@@ -190,7 +197,9 @@ sealed class TrayContext : ApplicationContext
 
     void Quit()
     {
-        TunnelClient.DisconnectAll();   // mac parity: quit never orphans tunnels
+        // Stop the service (it tears down all tunnels in OnStop). The service
+        // would also stop on its own when we exit — this just makes it instant.
+        Ipc.ServiceControl.Stop();
         _icon.Visible = false;
         ExitThread();
     }

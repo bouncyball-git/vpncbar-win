@@ -19,12 +19,14 @@ static class PipeProtocol
 }
 
 record PipeRequest(
-    string Op,                 // "connect" | "disconnect" | "disconnect-all" | "status"
+    string Op,                 // "connect" | "disconnect" | "disconnect-all" | "status" | "own"
+    int? Pid = null,           // "own": the tray PID the service should tie its life to
     string? Uuid = null,       // profile identity (connect/disconnect)
     string? Name = null,       // display name (log file naming, messages)
-    string? Kind = null,       // "openconnect" | "vpnc" (phase 4) | "stub" (dev)
+    string? Kind = null,       // "openconnect" | "vpnc" | "stub" (dev)
     string? Stdin = null,      // secret payload piped to the child, never stored
-    OcOptions? Oc = null);     // openconnect options (validated values, no paths to binaries)
+    OcOptions? Oc = null,      // openconnect options (validated values, no paths to binaries)
+    string? MatchDomains = null); // scoped-DNS domains (vpnc: passed as process env)
 
 // openconnect profile options — the service maps these onto a fixed argv
 // template; a client can never inject arbitrary arguments or binary paths.

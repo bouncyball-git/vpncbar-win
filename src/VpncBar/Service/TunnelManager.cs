@@ -16,7 +16,7 @@ namespace VpncBar.Service;
 // "vpnc" arrives in phase 4; "stub" (ping) is kept for development.
 sealed class TunnelManager(Action<string> log)
 {
-    sealed record Entry(Process Proc, string Name, DateTime Since, string LogFile);
+    sealed record Entry(Process Proc, string Name, DateTime Since, string LogFile, string? StopEvent);
 
     readonly ConcurrentDictionary<string, Entry> _tunnels = new();
 
@@ -27,6 +27,7 @@ sealed class TunnelManager(Action<string> log)
         if (_tunnels.ContainsKey(uuid)) return new(true);   // already up — never double-connect
 
         ProcessStartInfo psi;
+        string? stopEvent = null;
         switch (r.Kind)
         {
             case "openconnect":
@@ -36,6 +37,14 @@ sealed class TunnelManager(Action<string> log)
                     return new(false, "connect: missing openconnect options");
                 psi = OpenconnectPsi(uuid, r.Oc);
                 break;
+            case "vpnc":
+                if (!Backends.HasVpnc)
+                    return new(false, "The vpnc backend isn't bundled with this build.\n(vendor/vpnc/bin is missing — see tools/build-vpnc.ps1.)");
+                if (r.Stdin is not { Length: > 0 })
+                    return new(false, "connect: missing vpnc config");
+                stopEvent = $"Global\\vpncbar-stop-{uuid}";
+                psi = VpncPsi(uuid, r.MatchDomains, stopEvent);
+                break;
             case "stub":   // dev backend: long-running, periodic output, killable
                 psi = new ProcessStartInfo
                 {
@@ -43,8 +52,6 @@ sealed class TunnelManager(Action<string> log)
                     Arguments = "-t 127.0.0.1",
                 };
                 break;
-            case "vpnc":
-                return new(false, "Cisco IPSec (vpnc) tunnels arrive in phase 4.\nThis build can connect openconnect (AnyConnect) profiles.");
             default:
                 return new(false, $"unknown backend '{r.Kind}'");
         }
@@ -69,8 +76,13 @@ sealed class TunnelManager(Action<string> log)
             return new(false, $"Failed to start tunnel process:\n{e.Message}");
         }
 
-        // Secrets ride stdin and are never persisted (mac parity).
-        if (r.Stdin is { } stdin)
+        // Secrets ride stdin and are never persisted (mac parity). For vpnc
+        // the service appends the Script directive — only it knows its own
+        // elevated exe path (clients never name executables).
+        var payload = r.Kind == "vpnc"
+            ? r.Stdin + $"Script \"{Environment.ProcessPath}\" --script\n"
+            : r.Stdin;
+        if (payload is { } stdin)
         {
             try
             {
@@ -86,7 +98,7 @@ sealed class TunnelManager(Action<string> log)
         PumpLines(proc.StandardOutput, writer);
         PumpLines(proc.StandardError, writer);
 
-        _tunnels[uuid] = new Entry(proc, name, DateTime.Now, logFile);
+        _tunnels[uuid] = new Entry(proc, name, DateTime.Now, logFile, stopEvent);
 
         proc.EnableRaisingEvents = true;
         proc.Exited += (_, _) =>
@@ -149,6 +161,26 @@ sealed class TunnelManager(Action<string> log)
         return psi;
     }
 
+    // vpnc.exe reads the full config (built tray-side) from stdin via "-".
+    // The script env + graceful-stop event are passed as process environment
+    // (Windows has no /bin/sh env-prefix on the Script line like macOS).
+    ProcessStartInfo VpncPsi(string uuid, string? matchDomains, string stopEvent)
+    {
+        var psi = new ProcessStartInfo { FileName = Backends.VpncExe };
+        psi.ArgumentList.Add("--non-inter");
+        psi.ArgumentList.Add("-");                          // config on stdin
+        psi.Environment["VPNCBAR_UUID"] = uuid;             // --script: .info/NRPT tag
+        psi.Environment["VPNCBAR_STOP_EVENT"] = stopEvent;  // graceful disconnect (SIGTERM analog)
+        if (Ne(matchDomains) is { } raw)
+        {
+            var domains = string.Join(' ',
+                Regex.Replace(raw, "[^A-Za-z0-9.\\-_, ]", "")
+                    .Split([',', ' '], StringSplitOptions.RemoveEmptyEntries));
+            if (domains.Length > 0) psi.Environment["VPNC_MATCH_DOMAINS"] = domains;
+        }
+        return psi;
+    }
+
     static string? Ne(string? s)
     {
         var t = s?.Trim();
@@ -176,11 +208,16 @@ sealed class TunnelManager(Action<string> log)
         if (uuid == null || !_tunnels.TryGetValue(uuid, out var entry)) return new(true);   // not up
         try
         {
-            // Hard kill, then the service cleans the network config itself —
-            // teardown never depends on the child cooperating. (A graceful
-            // stop signal can come later for cleaner gateway logouts.)
-            entry.Proc.Kill(entireProcessTree: true);
-            entry.Proc.WaitForExit(5000);
+            // vpnc: signal its named stop event for a graceful teardown (sends
+            // a delete-SA to the gateway, runs the disconnect script) — the
+            // SIGTERM analog. Fall through to a hard kill if it doesn't exit.
+            if (entry.StopEvent != null && SignalStopEvent(entry.StopEvent))
+                entry.Proc.WaitForExit(5000);
+            if (!entry.Proc.HasExited)
+            {
+                entry.Proc.Kill(entireProcessTree: true);
+                entry.Proc.WaitForExit(5000);
+            }
         }
         catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
@@ -218,5 +255,19 @@ sealed class TunnelManager(Action<string> log)
     static int SafeExitCode(Process p)
     {
         try { return p.ExitCode; } catch (InvalidOperationException) { return -1; }
+    }
+
+    // Open the vpnc child's named stop event and signal it. Returns false if
+    // the event doesn't exist (vpnc not far enough along / already gone).
+    static bool SignalStopEvent(string name)
+    {
+        try
+        {
+            using var ev = System.Threading.EventWaitHandle.OpenExisting(name);
+            ev.Set();
+            return true;
+        }
+        catch (WaitHandleCannotBeOpenedException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
     }
 }
