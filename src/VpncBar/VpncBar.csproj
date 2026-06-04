@@ -15,6 +15,25 @@
     <!-- WinForms dark mode (Application.SetColorMode) is still marked experimental -->
     <NoWarn>$(NoWarn);WFO5001</NoWarn>
     <!-- Single exe, three modes: tray (default) | service | script. See docs/PORTING.md §3. -->
+
+    <!-- Release publish: self-contained single-file exe (no .NET runtime needed
+         by the end user — mirrors the mac app's one-bundle ethos). Build with:
+           dotnet publish -c Release   (or tools/publish.ps1) -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>            <!-- dev builds use the shared runtime -->
+    <PublishSingleFile>false</PublishSingleFile>
+    <Company>VpncBar</Company>
+    <Product>VpncBar</Product>
+    <AssemblyTitle>VpncBar</AssemblyTitle>
+  </PropertyGroup>
+
+  <!-- `dotnet publish` flips these on (see Directory.Build / tools/publish.ps1) -->
+  <PropertyGroup Condition="'$(_IsPublishing)' == 'true'">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
   </PropertyGroup>
 
   <ItemGroup>

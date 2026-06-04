@@ -1,0 +1,129 @@
+Vendored third-party components — VpncBar for Windows
+=====================================================
+
+VpncBar bundles three third-party components, each redistributed under its own
+license. Full source for the GPL/LGPL pieces is either included here
+(vendor/vpnc) or available from the upstream URLs and the pinned versions
+below. This file mirrors the provenance discipline of the macOS VpncBar repo.
+
+
+vendor/vpnc/  — vpnc (Cisco IPSec client), Windows-ported
+---------------------------------------------------------
+Upstream base : https://github.com/streambinder/vpnc   (a maintained fork of
+                vpnc 0.5.3, originally by Maurice Massar et al.)
+utun port from: https://github.com/breiter/vpnc        (0.5.3-xnu, by Brian Reiter)
+License       : GPL v2 or later (see vendor/vpnc/LICENSE). Includes cisco-decrypt.
+
+The full, modified source is in this repository (vendor/vpnc/src). VpncBar
+builds it from source — there is no separate binary distribution to offer.
+
+Local modifications for Windows (on top of the macOS utun port this fork
+already carries). All are guarded by `#if defined(_WIN32) && !defined(__CYGWIN__)`
+so the macOS/Unix paths are untouched:
+
+  src/sysdep-win.c        (new)
+    - Wintun tunnel backend: loads wintun.dll from the executable's directory
+      (the signed driver from wintun.net), creates an adapter, and implements
+      tun_open/tun_close/tun_read/tun_write over a Wintun session — the Windows
+      analog of this tree's native-utun port. Exports the adapter index as
+      $TUNIDX for the config script (as openconnect does on Windows).
+    - A dedicated reader thread pumps the (non-selectable) tunnel device, the
+      strategy the in-tree Cygwin port established.
+    - Graceful-stop watcher: waits on a named event (VPNCBAR_STOP_EVENT, set by
+      the VpncBar service) and a console-ctrl handler, setting do_kill — the
+      SIGTERM analog. A loopback "self-pipe" interrupts select() promptly.
+    - syslog/openlog shims (output to stderr, captured by the service), setenv/
+      unsetenv/error/uname/inet_aton shims, a CreateProcess-based system()
+      (no cmd.exe quote mangling), and a close() that handles winsock SOCKETs.
+    - winsock is initialized from a constructor (upstream main() untouched).
+
+  src/sysdep-win32.h, src/win32/*  (new)
+    - Compatibility header (winsock2 + small POSIX shims, WSAPoll for poll(),
+      WIFEXITED/WEXITSTATUS, a BSD `struct ip`, etc.) plus a directory of stub
+      headers that route the upstream BSD #includes to it.
+
+  src/tunip.c
+    - vpnc_main_loop(): the socket side stays in select(); the tunnel device is
+      pumped by a Win32 thread (mirrors the existing Cygwin #ifdef path). A
+      loopback wake socket lets a stop request interrupt select() at once.
+    - vpnc_doit(): no fork()/daemonize and no POSIX signals on Windows — the
+      service keeps vpnc as a foreground child; the stop watcher replaces the
+      signal handlers.
+
+  src/vpnc.c
+    - The IKE socket write() becomes send() on Windows (winsock SOCKETs are not
+      CRT fds). The config script runs via CreateProcess (win32_system).
+
+  src/config.c
+    - The interactive password prompt (termios echo toggling) and the external
+      password-helper (fork/exec/pipe) are compiled out on Windows; VpncBar
+      always feeds the full config — including secrets — on stdin, so neither
+      path is reachable.
+
+  src/Makefile.win32  (new)
+    - mingw-w64 build: links libgcrypt + GnuTLS (certificate support enabled —
+      a feature upgrade over the macOS default CRYPTO_NONE build), plus
+      ws2_32 and iphlpapi. Built by tools/build-vpnc.ps1.
+
+  The macOS `--log-file` option is retained but unused on Windows: the service
+  captures vpnc's stdout/stderr directly (no daemonization), so the per-profile
+  session log is produced the same way for both backends.
+
+
+vendor/openconnect/  — openconnect (Cisco AnyConnect SSL client)
+----------------------------------------------------------------
+Upstream : https://www.infradead.org/openconnect/
+Version  : openconnect 9.12 (source tarball mirrored in
+           vendor/openconnect/src/openconnect-9.12.tar.gz)
+License  : LGPL v2.1 (see the COPYING.LGPL inside the tarball).
+
+Built from that source with mingw-w64 (tools/fetch-openconnect.ps1), unmodified
+except for the build flags recorded in that script (a -Wno-incompatible-pointer-
+types relaxation for GCC 14, and wintun.h supplied from vendor/wintun). Shipped
+as a separate executable, so the LGPL relinking right is satisfied; the exact
+dependency package versions are recorded in vendor/openconnect/VERSIONS.txt.
+
+Bundled dependency DLLs (the mingw-w64 closure of openconnect.exe and, shared,
+of vpnc.exe). Each is redistributed under its own license; all are
+GPL-compatible:
+
+  libgnutls-30          GnuTLS              LGPL v2.1+
+  libnettle-8,
+  libhogweed-6          Nettle              LGPL v3+ / GPL v2+ (dual)
+  libgmp-10             GMP                 LGPL v3+ / GPL v2+ (dual)
+  libtasn1-6            libtasn1            LGPL v2.1+
+  libp11-kit-0          p11-kit             BSD-3-Clause
+  libidn2-0             libidn2             LGPL v3+ / GPL v2+
+  libunistring-5        libunistring        LGPL v3+
+  libxml2-16            libxml2             MIT
+  libzstd, libzstd.dll  Zstandard           BSD-3-Clause / GPL v2 (dual)
+  zlib1                 zlib                zlib license
+  libbrotli{common,dec,enc}  Brotli         MIT
+  libffi-8              libffi              MIT
+  libiconv-2, libintl-8 GNU libiconv/gettext LGPL v2.1+
+  libgcrypt-20          libgcrypt           LGPL v2.1+
+  libgpg-error-0        libgpg-error        LGPL v2.1+
+  libwinpthread-1       mingw-w64 winpthreads  ZPL / MIT (see mingw-w64)
+
+Source for any of these is obtainable from the MSYS2 mingw64 repository at the
+versions in vendor/openconnect/VERSIONS.txt, or from each project upstream.
+
+
+vendor/wintun/  — Wintun (TUN driver), prebuilt
+-----------------------------------------------
+Upstream : https://www.wintun.net/
+Version  : 0.14.1 (wintun.dll, per-arch, fetched by tools/fetch-wintun.ps1)
+License  : WireGuard LLC "Prebuilt Binaries License" (vendor/wintun/LICENSE.txt),
+           which permits redistribution as part of a larger product. The Wintun
+           source itself is GPL v2; we ship the signed prebuilt dll as intended
+           by upstream (we cannot sign a kernel driver ourselves).
+
+The same wintun.dll is used by both backends (openconnect >= 8.10 loads it from
+its own directory; our vpnc port loads it from the executable's directory).
+
+
+VpncBar application
+-------------------
+The VpncBar application code (src/VpncBar) is covered by this repository's
+LICENSE. It links no GPL code — it launches the GPL/LGPL backends as separate
+processes — so its own licensing is independent of the vendored components.
