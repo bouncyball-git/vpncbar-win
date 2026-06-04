@@ -33,6 +33,10 @@ static class Theme
                 tb.BackColor = Field;
                 tb.ForeColor = Text;
                 break;
+            case ListView lv:
+                lv.BorderStyle = BorderStyle.None;   // Fixed3D renders as a bright outline in dark mode
+                if (Dark) { lv.BackColor = Surface; lv.ForeColor = Text; }
+                break;
             case FieldPanel fp:
                 fp.BackColor = Dark ? Field : SystemColors.Window;
                 break;

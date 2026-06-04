@@ -70,13 +70,14 @@ sealed class ProfileEditorForm : Form
 
         Text = existing == null ? "New VPN" : $"Edit VPN — {existing.Name}";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(520, 620);
+        MinimumSize = new Size(450, 580);
         Size = MinimumSize;
         MaximizeBox = false;
         ShowInTaskbar = true;
 
         // --- Type selector (locked once saved, like the mac editor) ---
         _type.Items.AddRange(["vpnc", "openconnect"]);
+        _type.SizeToItems();   // field exactly as wide as its widest item (= popup width)
         _type.SelectedItem = existing?.IsOpenconnect == true ? "openconnect" : "vpnc";
         _type.Enabled = existing == null;
         _type.SelectedIndexChanged += (_, _) => ApplyType();
@@ -137,12 +138,13 @@ sealed class ProfileEditorForm : Form
         return t;
     }
 
-    static void AddRow(TableLayoutPanel t, string label, Control c, Control? extra = null)
+    // inField: accessory docked inside the field's right edge (e.g. the eye).
+    static void AddRow(TableLayoutPanel t, string label, Control c, Control? extra = null, Control? inField = null)
     {
-        if (c is TextBox tb) c = new FieldPanel(tb);   // borderless field chrome
+        if (c is TextBox tb) c = new FieldPanel(tb, inField);   // borderless field chrome
         int row = t.RowCount++;
         t.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        t.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 7, 3, 0) }, 0, row);
+        t.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Right, Margin = new Padding(3, 7, 3, 0) }, 0, row);
         c.Anchor = AnchorStyles.Left | AnchorStyles.Right;
         t.Controls.Add(c, 1, row);
         if (extra != null) t.Controls.Add(extra, 2, row);
@@ -155,17 +157,6 @@ sealed class ProfileEditorForm : Form
         t.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         t.Controls.Add(c, 1, row);
         t.SetColumnSpan(c, 2);
-    }
-
-    ThemedButton RevealButton(TextBox tb)
-    {
-        var b = new ThemedButton { Text = "Show", AutoSize = true };
-        b.Click += (_, _) =>
-        {
-            tb.UseSystemPasswordChar = !tb.UseSystemPasswordChar;
-            b.Text = tb.UseSystemPasswordChar ? "Show" : "Hide";
-        };
-        return b;
     }
 
     ThemedButton BrowseButton(TextBox tb, string title)
@@ -202,9 +193,9 @@ sealed class ProfileEditorForm : Form
         AddRow(v, "Name", _name);
         AddRow(v, "Gateway", _gateway);
         AddRow(v, "Group name", _group);
-        AddRow(v, "Group secret", _secret, RevealButton(_secret));
+        AddRow(v, "Group secret", _secret, inField: new EyeButton(_secret));
         AddRow(v, "Username", _username);
-        AddRow(v, "Password", _password, RevealButton(_password));
+        AddRow(v, "Password", _password, inField: new EyeButton(_password));
         AddRow(v, "VPN domains", _domains);
         _domains.PlaceholderText = "example.com, corp.local";
         AddRow(v, "IKE Authmode", _authmode);
@@ -230,7 +221,7 @@ sealed class ProfileEditorForm : Form
         AddRow(o, "Server cert", _ocServerCert);
         _ocServerCert.PlaceholderText = "pin-sha256:…";
         AddRow(o, "Username", ocUsername);
-        AddRow(o, "Password", ocPassword, RevealButton(ocPassword));
+        AddRow(o, "Password", ocPassword, inField: new EyeButton(ocPassword));
         AddRow(o, "VPN domains", ocDomains);
         AddRow(o, "Client cert", ocClientCert, BrowseButton(ocClientCert, "Choose client certificate"));
         AddFull(o, _ocOtp);
@@ -256,7 +247,7 @@ sealed class ProfileEditorForm : Form
 
         var v = NewGrid();
         AddRow(v, "IKE DH Group", _dh);
-        AddRow(v, "Perfect Forward Secrecy", _pfs);
+        AddRow(v, "Forward Secrecy", _pfs);
         AddRow(v, "NAT-T Mode", _nat);
         AddRow(v, "Vendor", _vendor);
         AddRow(v, "Interface MTU", _mtu);

@@ -28,6 +28,15 @@ sealed class ThemedCombo : Control
 
     public List<string> Items => _items;
 
+    // Widen the closed control to fit its widest item (text pad + chevron),
+    // so the popup list and the field are exactly the same width.
+    public void SizeToItems()
+    {
+        int w = 0;
+        foreach (var s in _items) w = Math.Max(w, TextRenderer.MeasureText(s, Font).Width);
+        Width = w + 8 + 30;
+    }
+
     public event EventHandler? SelectedIndexChanged;
 
     [DefaultValue(null)]
@@ -96,7 +105,7 @@ sealed class ThemedCombo : Control
         };
 
         int rows = Math.Min(_items.Count, MaxVisibleRows);
-        var popup = new Form
+        var popup = new PopupForm
         {
             FormBorderStyle = FormBorderStyle.None,
             StartPosition = FormStartPosition.Manual,
@@ -139,6 +148,29 @@ sealed class ThemedCombo : Control
         Focus();
         if (e.Button == MouseButtons.Left && Enabled) OpenList();
         base.OnMouseDown(e);
+    }
+
+    // Borderless popup that can be narrower than Windows' default minimum
+    // window tracking width (~170px at 125% DPI) — otherwise the list ends up
+    // wider than the combo it belongs to.
+    sealed class PopupForm : Form
+    {
+        protected override void WndProc(ref Message m)
+        {
+            const int WM_GETMINMAXINFO = 0x24;
+            base.WndProc(ref m);
+            if (m.Msg == WM_GETMINMAXINFO)
+            {
+                var mmi = System.Runtime.InteropServices.Marshal.PtrToStructure<MINMAXINFO>(m.LParam);
+                mmi.ptMinTrackSize = new Point(1, 1);
+                System.Runtime.InteropServices.Marshal.StructureToPtr(mmi, m.LParam, false);
+            }
+        }
+
+        struct MINMAXINFO
+        {
+            public Point ptReserved, ptMaxSize, ptMaxPosition, ptMinTrackSize, ptMaxTrackSize;
+        }
     }
 
     protected override bool IsInputKey(Keys keyData) =>
@@ -193,8 +225,6 @@ sealed class ThemedCombo : Control
         var glyphRect = new Rectangle(Width - 24, 0, 20, Height);
         TextRenderer.DrawText(g, ((char)0xE70D).ToString(), glyphFont, glyphRect, textColor,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-
-        if (Focused)
-            ControlPaint.DrawFocusRectangle(g, Rectangle.Inflate(ClientRectangle, -2, -2));
+        // No focus rectangle by design — flat and quiet, like the other fields.
     }
 }

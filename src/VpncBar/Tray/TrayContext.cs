@@ -87,7 +87,7 @@ sealed class TrayContext : ApplicationContext
 
         if (profiles.Count == 0)
         {
-            _menu.Items.Add(new ToolStripMenuItem("No VPNs — use Manage VPNs…") { Enabled = false });
+            _menu.Items.Add(new ToolStripMenuItem("No VPNs") { Enabled = false });
         }
         else
         {
