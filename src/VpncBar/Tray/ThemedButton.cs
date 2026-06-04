@@ -76,7 +76,7 @@ sealed class ThemedButton : Control, IButtonControl
         var g = e.Graphics;
         if (Application.IsDarkModeEnabled)
         {
-            var fill = !Enabled ? Theme.Surface
+            var fill = !Enabled ? Theme.FieldDisabled
                      : _down ? Theme.FieldDown
                      : _hover || Focused ? Theme.FieldHover
                      : Theme.Field;

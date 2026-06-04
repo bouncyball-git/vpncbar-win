@@ -70,7 +70,7 @@ sealed class ProfileEditorForm : Form
 
         Text = existing == null ? "New VPN" : $"Edit VPN — {existing.Name}";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(450, 580);
+        MinimumSize = new Size(440, 570);
         Size = MinimumSize;
         MaximizeBox = false;
         ShowInTaskbar = true;
@@ -159,9 +159,9 @@ sealed class ProfileEditorForm : Form
         t.SetColumnSpan(c, 2);
     }
 
-    ThemedButton BrowseButton(TextBox tb, string title)
+    DotsButton BrowseButton(TextBox tb, string title)
     {
-        var b = new ThemedButton { Text = "…", AutoSize = true };
+        var b = new DotsButton();
         b.Click += (_, _) =>
         {
             using var dlg = new OpenFileDialog { Title = title };
@@ -199,8 +199,8 @@ sealed class ProfileEditorForm : Form
         AddRow(v, "VPN domains", _domains);
         _domains.PlaceholderText = "example.com, corp.local";
         AddRow(v, "IKE Authmode", _authmode);
-        AddRow(v, "CA file", _caFile, BrowseButton(_caFile, "Choose CA certificate"));
-        AddRow(v, "Client cert", _clientCert, BrowseButton(_clientCert, "Choose client certificate"));
+        AddRow(v, "CA file", _caFile, inField: BrowseButton(_caFile, "Choose CA certificate"));
+        AddRow(v, "Client cert", _clientCert, inField: BrowseButton(_clientCert, "Choose client certificate"));
         _credsVpnc = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
         _credsVpnc.Controls.Add(v);
 
@@ -223,7 +223,7 @@ sealed class ProfileEditorForm : Form
         AddRow(o, "Username", ocUsername);
         AddRow(o, "Password", ocPassword, inField: new EyeButton(ocPassword));
         AddRow(o, "VPN domains", ocDomains);
-        AddRow(o, "Client cert", ocClientCert, BrowseButton(ocClientCert, "Choose client certificate"));
+        AddRow(o, "Client cert", ocClientCert, inField: BrowseButton(ocClientCert, "Choose client certificate"));
         AddFull(o, _ocOtp);
         _credsOc = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Visible = false };
         _credsOc.Controls.Add(o);

@@ -32,6 +32,40 @@ sealed class FieldPanel : Panel
     }
 }
 
+// Flat in-field "…" button (MDL2 More glyph): no chrome, shares the field's
+// fill — used to open a file browser for path fields. Behavior comes from the
+// standard Click event.
+sealed class DotsButton : Control
+{
+    bool _hover;
+
+    public DotsButton()
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint
+               | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        Width = 30;
+        Cursor = Cursors.Hand;
+        TabStop = false;
+    }
+
+    protected override void OnMouseEnter(EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
+    protected override void OnMouseLeave(EventArgs e) { _hover = false; Invalidate(); base.OnMouseLeave(e); }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        bool dark = Application.IsDarkModeEnabled;
+        var bg = Parent?.BackColor ?? (dark ? Theme.Field : SystemColors.Window);
+        using (var b = new SolidBrush(bg)) e.Graphics.FillRectangle(b, ClientRectangle);
+
+        var color = dark ? Color.FromArgb(170, 170, 170) : Color.FromArgb(95, 95, 95);
+        if (_hover) color = dark ? Theme.Text : SystemColors.WindowText;
+        e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+        using var glyphFont = new Font("Segoe MDL2 Assets", Font.Size + 1f);
+        TextRenderer.DrawText(e.Graphics, ((char)0xE712).ToString(), glyphFont, ClientRectangle, color,
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+    }
+}
+
 // Flat in-field password-reveal toggle: the Segoe MDL2 eye glyph, no chrome
 // at all — it sits inside the FieldPanel and shares its fill. Click toggles
 // the masked state of the TextBox it guards.

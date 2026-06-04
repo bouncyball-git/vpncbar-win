@@ -14,6 +14,7 @@ static class Theme
     internal static readonly Color Field = Color.FromArgb(50, 50, 50);      // inputs at rest
     internal static readonly Color FieldHover = Color.FromArgb(60, 60, 60);
     internal static readonly Color FieldDown = Color.FromArgb(40, 40, 40);
+    internal static readonly Color FieldDisabled = Color.FromArgb(42, 42, 42);  // dimmer than Field, lighter than Surface
     internal static readonly Color Text = Color.FromArgb(235, 235, 235);
     internal static readonly Color TextDisabled = Color.FromArgb(120, 120, 120);
 
