@@ -139,7 +139,9 @@ tools\build-installer.ps1     # installer          → dist\VpncBar-<ver>-setup.
 For day-to-day development, `dotnet build src\VpncBar` produces a framework-
 dependent build under `bin\Debug`; register the service once with
 `VpncBar.exe --install-service` from an elevated prompt, then run the tray exe.
-The same backend builds are reproduced in CI ([`.github/workflows/build.yml`](.github/workflows/build.yml)).
+Each `tools\*.ps1` script records the exact source tag and dependency versions
+it builds from (`vendor\openconnect\VERSIONS.txt`), so the backend builds are
+reproducible.
 
 ## Usage
 

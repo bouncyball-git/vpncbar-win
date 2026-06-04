@@ -19,7 +19,7 @@ in the Keychain, network config via a patched `vpnc-script`, and passwordless
 | vpnc backend | **Native port, winsock + Wintun** (no Cygwin), vendored in this tree with the `--log-file` patch carried over | Clean result, no cygwin1.dll; the in-tree Cygwin `#ifdef`s serve as a map of OS touch-points only |
 | Privilege model | **Windows service** (`VpncBar.exe --service`; same binary as the tray app, see §3) | Installed once by the installer; tray app talks to it over a named pipe. Same UX as the mac sudoers rule: no prompt per connect |
 | TUN driver | **Wintun** (signed `wintun.dll` from wintun.net) | Modern, fast, signed by WireGuard LLC — no driver-signing problem for us; used by openconnect ≥ 8.10 too, so **both backends share one driver** |
-| openconnect | **Bundled, built from source in CI** (pinned release tag; see §4.2) | Windows has no Homebrew-equivalent the target audience has; "install it yourself" is not a viable UX. CI build = reproducible, patchable, exact source provenance |
+| openconnect | **Bundled, built from source** (pinned release tag, via `tools/fetch-openconnect.ps1`; see §4.2) | Windows has no Homebrew-equivalent the target audience has; "install it yourself" is not a viable UX. From-source build = reproducible, patchable, exact source provenance |
 | TLS backend | **GnuTLS for both backends**, dynamically linked against one shared set of bundled DLLs | openconnect requires GnuTLS anyway → building vpnc with it costs little and enables `cert`/`hybrid` authmodes (inert in the default mac build). One DLL set = one place to ship CVE fixes |
 | Session logs / Debug tab | **Service redirects each child's stdout/stderr** to the per-profile log (truncated per connect) | Backend-agnostic: no `--log-file` patch needed in openconnect (no daemonization on Windows — both backends are foreground children of the service). vpnc keeps its `--log-file` option for parity with the mac fork |
 
@@ -138,8 +138,8 @@ service cannot read them. Therefore:
 
 ### 4.1 vpnc — built by us, fully bundled, **with GnuTLS**
 
-- Built from `vendor/vpnc` with **mingw-w64** (MSYS2), in the same CI
-  pipeline as openconnect (§4.2).
+- Built from `vendor/vpnc` with **mingw-w64** (MSYS2), by the same
+  from-source toolchain as openconnect (`tools/build-vpnc.ps1`; §4.2).
 - **Linked against GnuTLS** (not `CRYPTO_NONE` like the default mac build):
   since openconnect drags GnuTLS in anyway, vpnc shares the same bundled
   DLLs and gains working `cert`/`hybrid` IKE authmodes — a feature upgrade
@@ -171,22 +171,23 @@ a heavy developer environment, and the only end-user channel (openconnect-gui
 installer) means installing a competing GUI to scavenge its CLI. So:
 
 **Decision: bundle `openconnect.exe` + its dependency DLLs, built from
-source in CI** (GitHub Actions + MSYS2/mingw-w64, pinned openconnect release
-tag). Pinned, reproducible, patchable if Windows quirks surface; the exact
-source provenance the LGPL requires is trivially satisfied by recording the
-tag + dependency package versions and mirroring the source tarballs in
-`vendor/openconnect/src/` or a release asset.
+source** (MSYS2/mingw-w64, pinned openconnect release tag, via
+`tools/fetch-openconnect.ps1`). Pinned, reproducible, patchable if Windows
+quirks surface; the exact source provenance the LGPL requires is satisfied by
+recording the tag + dependency package versions (`vendor/openconnect/
+VERSIONS.txt`) and mirroring the source tarball in `vendor/openconnect/src/`.
 
 Options that were considered and rejected:
 
 | Option | Why rejected |
 |---|---|
-| Repackage MSYS2 `mingw-w64-openconnect` + DLL closure | Version drift with MSYS2's rolling packages; no patch leverage; source mirroring is fiddlier. (Acceptable as a *temporary* phase-3 spike vehicle while CI lands, nothing more.) |
+| Repackage MSYS2 `mingw-w64-openconnect` + DLL closure | Version drift with MSYS2's rolling packages; no patch leverage; source mirroring is fiddlier. |
 | Don't bundle, detect a system install | No realistic install channel on Windows |
 | Require/download openconnect-gui's copy | Fragile, not redistributable cleanly |
 
-The same CI pipeline builds **vpnc** (§4.1) against the same dependency set,
-so both backends share one set of GnuTLS/nettle/gmp/libxml2 DLLs in `bin\`.
+The same toolchain builds **vpnc** (§4.1, `tools/build-vpnc.ps1`) against the
+same dependency set, so both backends share one set of GnuTLS/nettle/gmp/
+libxml2 DLLs in `bin\`.
 
 **No log patch needed:** upstream openconnect has no `--log-file` option, and
 we don't add one. On Windows both backends run as *foreground children of
@@ -195,7 +196,7 @@ log (`%ProgramData%\VpncBar\run\<uuid>_<name>.log`, truncated per connect).
 The mac app needed vpnc's `--log-file` only because vpnc daemonizes there —
 no daemonization on Windows, so plain fd redirection covers both backends
 uniformly and the Debug tab just tails the file either way. Keeping the
-openconnect build patch-free is exactly what makes the CI pin-bump cheap.
+openconnect build patch-free is exactly what makes a version pin-bump cheap.
 
 License obligations of the openconnect stack:
 
@@ -382,14 +383,14 @@ port targets plain win32 (`_WIN32`), not Cygwin.
    connect/disconnect round-trip with a **stub backend** (e.g. a sleep
    process), teardown-on-stop, Inno Setup installing app+service.
    *Exit criterion: click row → service spawns child → ✓ + timer in menu.*
-3. **openconnect backend** — stand up the **CI pipeline** (MSYS2, pinned
-   openconnect tag + GnuTLS dependency set; an MSYS2 package install may
-   serve as a local spike vehicle while CI lands); spike the `--script`
-   env-delivery and Wintun-adapter questions (§4.2); implement routes +
-   NRPT + `.info` in `--script` mode/service; Fetch groups + OTP flow.
-   *First real tunnels.*
-4. **vpnc native port** — §8, built with GnuTLS in the same CI pipeline,
-   against a real IKEv1 gateway; Info/Debug tabs wired to counters and logs.
+3. **openconnect backend** — build openconnect from source (MSYS2, pinned
+   tag + GnuTLS dependency set, `tools/fetch-openconnect.ps1`); spike the
+   `--script` env-delivery and Wintun-adapter questions (§4.2); implement
+   routes + NRPT + `.info` in `--script` mode/service; Fetch groups + OTP
+   flow. *First real tunnels.*
+4. **vpnc native port** — §8, built with GnuTLS by the same toolchain
+   (`tools/build-vpnc.ps1`), against a real IKEv1 gateway; Info/Debug tabs
+   wired to counters and logs.
 5. **Polish & release** — notifications, Disconnect All, sweep, single
    instance, uninstaller (tear down tunnels first, keep profiles+creds),
    NOTICE/licensing audit, signed installer if a cert is available, README.
@@ -424,7 +425,7 @@ Resolved:
 
 - ~~Tray-app exit~~ → tear down all tunnels (mac parity); exact per-exit-path
   semantics in the §7 checklist
-- ~~openconnect bundling source~~ → built from source in CI, pinned tag (§4.2)
+- ~~openconnect bundling source~~ → built from source, pinned tag, via tools/ scripts (§4.2)
 - ~~vpnc TLS backend~~ → GnuTLS for both backends, shared DLLs; cert/hybrid
   live from day one (§4.1)
 - ~~openconnect `--log-file` patch~~ → not needed; service-side stdout/stderr
