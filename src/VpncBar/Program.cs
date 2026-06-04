@@ -1,0 +1,46 @@
+using VpncBar.Tray;
+
+namespace VpncBar;
+
+// One executable, multiple modes (docs/PORTING.md §3):
+//   VpncBar.exe                → tray app (per-user, unprivileged)
+//   VpncBar.exe --service      → Windows service (LocalSystem)     [phase 2]
+//   VpncBar.exe --script       → network-config shim for backends  [phase 3]
+//   VpncBar.exe --install-service / --uninstall-service            [phase 2]
+static class Program
+{
+    [STAThread]
+    static int Main(string[] args)
+    {
+        switch (args.FirstOrDefault())
+        {
+            case "--service":
+                return ServiceMode.Run(args);
+            case "--script":
+                return ScriptMode.Run(args);
+            case "--install-service":
+            case "--uninstall-service":
+                Console.Error.WriteLine("service install/uninstall: not implemented yet (phase 2)");
+                return 1;
+            case "--ui-demo":   // dev aid: open the profile editor directly (UI iteration/screenshots)
+                ApplicationConfiguration.Initialize();
+                Application.SetColorMode(SystemColorMode.System);
+                Application.Run(new Tray.ProfileEditorForm(null, () => { }));
+                return 0;
+            default:
+                return RunTray();
+        }
+    }
+
+    static int RunTray()
+    {
+        // Single instance per session (the mac app checks running bundle ids).
+        using var mutex = new Mutex(initiallyOwned: true, @"Local\VpncBar-tray", out bool createdNew);
+        if (!createdNew) return 0;
+
+        ApplicationConfiguration.Initialize();
+        Application.SetColorMode(SystemColorMode.System);   // follow the system light/dark theme
+        Application.Run(new TrayContext());
+        return 0;
+    }
+}
