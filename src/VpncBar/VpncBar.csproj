@@ -9,6 +9,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <Version>0.1.0</Version>
+    <ApplicationIcon>assets\VpncBar.ico</ApplicationIcon>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <InvariantGlobalization>true</InvariantGlobalization>
     <!-- WinForms dark mode (Application.SetColorMode) is still marked experimental -->
@@ -17,8 +18,21 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Windows-service hosting for the same exe's service mode -->
-    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.*" />
+    <!-- ServiceBase for the same exe's service mode (no generic-host stack) -->
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Icon art: colors are parsed from these at runtime (TrayIcons) -->
+    <EmbeddedResource Include="assets\vpn-on.svg" />
+    <EmbeddedResource Include="assets\vpn-off.svg" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Bundled backends → output\openconnect\ (wintun.dll beside the exe so it loads it) -->
+    <None Include="..\..\vendor\openconnect\bin\**" LinkBase="openconnect" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\vendor\wintun\bin\amd64\wintun.dll" Link="openconnect\wintun.dll" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="assets\vpncbar-script.js" Link="vpncbar-script.js" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -23,7 +23,7 @@ sealed class TrayContext : ApplicationContext
     {
         _icon = new NotifyIcon
         {
-            Icon = TrayIcons.Unlocked,
+            Icon = TrayIcons.Disconnected,
             Text = "VpncBar",
             ContextMenuStrip = _menu,
             Visible = true,
@@ -43,16 +43,6 @@ sealed class TrayContext : ApplicationContext
         _poll.Tick += (_, _) => RefreshState();
         _poll.Start();
 
-        // Re-render the tray icon when the system theme flips light/dark.
-        Microsoft.Win32.SystemEvents.UserPreferenceChanged += (_, e) =>
-        {
-            if (e.Category == Microsoft.Win32.UserPreferenceCategory.General)
-            {
-                TrayIcons.Refresh();
-                RefreshState();
-            }
-        };
-
         // Mac parity: tear down all tunnels when the tray session ends (logoff/
         // shutdown). Quit goes through ExitThread below; crash is the exemption.
         Application.ApplicationExit += (_, _) => TunnelClient.DisconnectAll();
@@ -66,8 +56,11 @@ sealed class TrayContext : ApplicationContext
         var tunnels = TunnelClient.Status(profiles);
         var connected = tunnels.Keys.ToHashSet();
 
-        _icon.Icon = connected.Count == 0 ? TrayIcons.Unlocked : TrayIcons.Locked;
-        RebuildMenu(profiles, tunnels);
+        _icon.Icon = connected.Count == 0 ? TrayIcons.Disconnected : TrayIcons.Connected;
+        // Never rebuild the menu while it's open (jitter): the 1s tick updates
+        // the elapsed times in place, and Opening always rebuilds fresh (mac
+        // parity — its poll timer is suspended during menu tracking).
+        if (!_menu.Visible) RebuildMenu(profiles, tunnels);
 
         // Notify per profile on change (covers manual connects + unexpected drops).
         if (_lastConnected != null)
@@ -97,7 +90,7 @@ sealed class TrayContext : ApplicationContext
                 var item = new ToolStripMenuItem(p.Name) { Checked = connected };
                 if (connected)
                 {
-                    item.ShortcutKeyDisplayString = FormatElapsed(DateTime.Now - since);
+                    item.ShortcutKeyDisplayString = Format.Elapsed(DateTime.Now - since);
                     _liveRows.Add((item, since));
                 }
                 var profile = p;   // capture
@@ -124,23 +117,35 @@ sealed class TrayContext : ApplicationContext
     void UpdateElapsed()
     {
         foreach (var (item, since) in _liveRows)
-            item.ShortcutKeyDisplayString = FormatElapsed(DateTime.Now - since);
-    }
-
-    static string FormatElapsed(TimeSpan t)
-    {
-        if (t < TimeSpan.Zero) t = TimeSpan.Zero;
-        if (t.Days > 0) return $"{t.Days}d {t.Hours}h";
-        if (t.Hours > 0) return $"{t.Hours}:{t.Minutes:00}:{t.Seconds:00}";
-        return $"{t.Minutes}:{t.Seconds:00}";
+            item.ShortcutKeyDisplayString = Format.Elapsed(DateTime.Now - since);
     }
 
     void ToggleProfile(Profile p)
     {
         var connected = TunnelClient.Status([p]).Count > 0;
-        var err = connected ? TunnelClient.Disconnect(p) : TunnelClient.Connect(p);
-        RefreshState();
-        if (err != null) MessageBox.Show(err, "VpncBar", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        string? otp = null;
+        if (!connected && p.IsOpenconnect && (p.OcOtp ?? false))
+        {
+            otp = OtpPrompt.Show(p.Name);
+            if (otp == null) return;   // cancelled
+        }
+        // Connect can take a while (gateway auth) — keep the UI responsive.
+        Task.Run(() =>
+        {
+            var err = connected ? TunnelClient.Disconnect(p) : TunnelClient.Connect(p, otp);
+            BeginInvoke(() =>
+            {
+                RefreshState();
+                if (err != null) MessageBox.Show(err, "VpncBar", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            });
+        });
+    }
+
+    // ApplicationContext has no window; marshal back via the menu's handle.
+    void BeginInvoke(Action action)
+    {
+        if (_menu.IsHandleCreated) _menu.BeginInvoke(action);
+        else action();
     }
 
     // One editor window per profile (opening it again just brings it forward).

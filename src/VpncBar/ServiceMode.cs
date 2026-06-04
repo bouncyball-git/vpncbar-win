@@ -1,40 +1,42 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using System.ServiceProcess;
 using VpncBar.Service;
 
 namespace VpncBar;
 
 // Privileged engine (LocalSystem, Session 0): tunnel manager, pipe server.
-// `--service` under the SCM is the normal case; `--service --console` runs
-// the same engine inline for development (stop with Ctrl+C / Stop-Process —
-// the engine logs to %ProgramData%\VpncBar\service.log either way).
+// Under the SCM this runs as a Windows service (ServiceBase); started from a
+// terminal (`--service --console` or no SCM) the same engine runs inline for
+// development. Logs to %ProgramData%\VpncBar\service.log either way.
 static class ServiceMode
 {
     public static int Run(string[] args)
     {
-        var builder = Host.CreateApplicationBuilder();
-        builder.Logging.ClearProviders();   // our own file log; no console in a WinExe
-        builder.Services.AddWindowsService(o => o.ServiceName = ServiceInstaller.ServiceName);
-        builder.Services.AddHostedService<EngineHost>();
-        builder.Build().Run();
+        if (Environment.UserInteractive || args.Contains("--console"))
+        {
+            // Dev mode: engine inline, runs until the process is stopped.
+            var engine = new ServiceEngine();
+            engine.Start();
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => engine.Stop();
+            Thread.Sleep(Timeout.Infinite);
+            return 0;
+        }
+
+        ServiceBase.Run(new VpncBarService());
         return 0;
     }
 
-    sealed class EngineHost : IHostedService
+    sealed class VpncBarService : ServiceBase
     {
         readonly ServiceEngine _engine = new();
 
-        public Task StartAsync(CancellationToken ct)
+        public VpncBarService()
         {
-            _engine.Start();
-            return Task.CompletedTask;
+            ServiceName = ServiceInstaller.ServiceName;
+            CanShutdown = true;   // OnShutdown → tunnels torn down on system shutdown
         }
 
-        public Task StopAsync(CancellationToken ct)
-        {
-            _engine.Stop();   // disconnect-all on service stop / shutdown
-            return Task.CompletedTask;
-        }
+        protected override void OnStart(string[] args) => _engine.Start();
+        protected override void OnStop() => _engine.Stop();
+        protected override void OnShutdown() => _engine.Stop();
     }
 }

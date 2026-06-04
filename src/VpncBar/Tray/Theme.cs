@@ -22,6 +22,7 @@ static class Theme
 
     public static void Polish(Form form)
     {
+        form.Icon = TrayIcons.App;   // logo in every title bar / taskbar entry
         if (Dark) form.BackColor = Surface;
         Walk(form);
     }

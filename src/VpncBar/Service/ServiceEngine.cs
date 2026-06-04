@@ -15,6 +15,9 @@ sealed class ServiceEngine
     public void Start()
     {
         Directory.CreateDirectory(Paths.RunDir);
+        // No tunnel can be up at service start (children die with the
+        // service), so any VpncBar NRPT rule is an orphan from a crash.
+        NetConfig.SweepNrptRules(Log);
         _manager = new TunnelManager(Log);
         _serverTask = new PipeServer(_manager, Log).RunAsync(_cts.Token);
         Log("service started");

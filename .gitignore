@@ -1,7 +1,14 @@
+# build outputs
 bin/
 obj/
 dist/
 *.user
 .vs/
+
+# fetched / built binaries — regenerate with the tools/ scripts:
+#   tools/fetch-wintun.ps1       -> vendor/wintun/bin
+#   tools/fetch-openconnect.ps1  -> vendor/openconnect/build + bin
+# (vendor/openconnect/src/*.tar.gz IS committed: LGPL source provenance)
+vendor/openconnect/build/
 vendor/openconnect/bin/
-vendor/wintun/*.dll
+vendor/wintun/bin/

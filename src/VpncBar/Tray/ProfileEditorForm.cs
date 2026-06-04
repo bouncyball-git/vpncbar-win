@@ -62,9 +62,12 @@ sealed class ProfileEditorForm : Form
     Panel _credsVpnc = null!, _credsOc = null!, _optsVpnc = null!, _optsOc = null!;
     TabControl _tabs = null!;
     ThemedButton _connect = null!;
+    ThemedButton _fetch = null!;
     TextBox _debugLog = null!;
+    TextBox _info = null!;
     readonly System.Windows.Forms.Timer _stateTimer = new() { Interval = 2000 };   // Connect-button label
     readonly System.Windows.Forms.Timer _tailTimer = new() { Interval = 250 };     // Debug-tab tail (~4×/s)
+    readonly System.Windows.Forms.Timer _infoTimer = new() { Interval = 1000 };    // Info tab (1 Hz while visible)
     long _logLength = -1;   // last tailed file size (skip re-reads when unchanged)
 
     bool IsOc => (string)_type.SelectedItem! == "openconnect";
@@ -96,9 +99,9 @@ sealed class ProfileEditorForm : Form
         _tabs = new TabControl { Dock = DockStyle.Fill };
         _tabs.TabPages.Add(BuildCredentialsTab());
         _tabs.TabPages.Add(BuildOptionsTab());
-        _tabs.TabPages.Add(PlaceholderTab("Info", "Live tunnel state appears here while connected.\n(Arrives with the network config in phase 3.)"));
+        _tabs.TabPages.Add(BuildInfoTab());
         _tabs.TabPages.Add(BuildDebugTab());
-        _tabs.SelectedIndexChanged += (_, _) => UpdateLogTailing();
+        _tabs.SelectedIndexChanged += (_, _) => OnTabChanged();
 
         // --- Bottom buttons ---
         var bottom = new FlowLayoutPanel
@@ -143,7 +146,17 @@ sealed class ProfileEditorForm : Form
             PollState();
         }
         _tailTimer.Tick += (_, _) => TailLog();
-        FormClosed += (_, _) => { _stateTimer.Stop(); _tailTimer.Stop(); };
+        _infoTimer.Tick += (_, _) => RefreshInfo();
+        FormClosed += (_, _) => { _stateTimer.Stop(); _tailTimer.Stop(); _infoTimer.Stop(); };
+    }
+
+    void OnTabChanged()
+    {
+        UpdateLogTailing();
+        // Info refreshes every second, but only while its tab is visible (mac parity).
+        bool infoVisible = _tabs.SelectedTab?.Text == "Info" && _existing != null;
+        if (infoVisible) { _infoTimer.Start(); RefreshInfo(); }
+        else _infoTimer.Stop();
     }
 
     // ----- live state (Connect button) -----
@@ -176,10 +189,16 @@ sealed class ProfileEditorForm : Form
         if (_existing == null) return;
         var p = _existing;
         bool up = _connected;
+        string? otp = null;
+        if (!up && p.IsOpenconnect && (p.OcOtp ?? false))
+        {
+            otp = OtpPrompt.Show(p.Name);
+            if (otp == null) return;   // cancelled
+        }
         _connect.Enabled = false;
         Task.Run(() =>
         {
-            var err = up ? Ipc.TunnelClient.Disconnect(p) : Ipc.TunnelClient.Connect(p);
+            var err = up ? Ipc.TunnelClient.Disconnect(p) : Ipc.TunnelClient.Connect(p, otp);
             try
             {
                 BeginInvoke(() =>
@@ -193,6 +212,230 @@ sealed class ProfileEditorForm : Form
             }
             catch (InvalidOperationException) { /* form closed */ }
         });
+    }
+
+    // ----- Fetch groups (openconnect guided setup) -----
+
+    // Fetch the gateway's group list AND each group's 2FA flag in ONE probe:
+    // the group list is in the initial auth form, no credentials needed. The
+    // 2FA requirement is encoded as second-auth="1" on the group's <option>.
+    // Port of the mac openconnectGroupList().
+    void FetchGroups()
+    {
+        var server = _gateway.Text.Trim();
+        if (server.Length == 0)
+        {
+            MessageBox.Show(this, "Enter the Gateway first.", "VpncBar",
+                            MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        if (!Backends.HasOpenconnect)
+        {
+            MessageBox.Show(this, "The openconnect binaries aren't bundled with this build.",
+                            "VpncBar", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        var pin = _ocServerCert.Text.Trim();
+        _fetch.Enabled = false;
+        var oldText = _fetch.Text;
+        _fetch.Text = "Fetching…";
+        Task.Run(() =>
+        {
+            var (groups, error) = ProbeGroups(server, pin.Length > 0 ? pin : null);
+            try
+            {
+                BeginInvoke(() =>
+                {
+                    _fetch.Enabled = true;
+                    _fetch.Text = oldText;
+                    if (error != null)
+                        MessageBox.Show(this, error, "VpncBar", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    else
+                        ShowGroupPicker(groups!);
+                });
+            }
+            catch (InvalidOperationException) { /* form closed */ }
+        });
+    }
+
+    static (List<(string Group, bool Otp)>? Groups, string? Error) ProbeGroups(string server, string? pin)
+    {
+        var psi = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = Backends.OpenconnectExe,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        psi.ArgumentList.Add("--protocol=anyconnect");
+        psi.ArgumentList.Add("--cookieonly");
+        psi.ArgumentList.Add("--dump-http-traffic");
+        psi.ArgumentList.Add("--user=probe");
+        psi.ArgumentList.Add("--passwd-on-stdin");
+        if (pin != null) psi.ArgumentList.Add($"--servercert={pin}");
+        psi.ArgumentList.Add(server);
+
+        try
+        {
+            using var proc = System.Diagnostics.Process.Start(psi)!;
+            // Dummy lines so openconnect reads past its password prompts and
+            // the form (with the group list) gets dumped before auth fails.
+            proc.StandardInput.Write("x\ny\n");
+            proc.StandardInput.Close();
+            var stdout = proc.StandardOutput.ReadToEndAsync();
+            var stderr = proc.StandardError.ReadToEndAsync();
+            if (!proc.WaitForExit(30000))
+            {
+                proc.Kill(entireProcessTree: true);
+                return (null, "The gateway didn't respond within 30 seconds.");
+            }
+            var output = stdout.Result + "\n" + stderr.Result;
+
+            var result = new List<(string, bool)>();
+            var seen = new HashSet<string>();
+            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(
+                output, "<option([^>]*)>([^<]+)</option>",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            {
+                var attrs = m.Groups[1].Value.ToLowerInvariant();
+                var label = m.Groups[2].Value.Trim();
+                if (label.Length > 0 && seen.Add(label))
+                    result.Add((label, attrs.Contains("second-auth=\"1\"")));
+            }
+            if (result.Count == 0)
+            {
+                var tail = string.Concat(output.TrimEnd().TakeLast(400));
+                return (null, $"No groups found. The gateway said:\n…{tail}");
+            }
+            return (result, null);
+        }
+        catch (Exception e)
+        {
+            return (null, $"Couldn't run the probe:\n{e.Message}");
+        }
+    }
+
+    void ShowGroupPicker(List<(string Group, bool Otp)> groups)
+    {
+        var menu = new ContextMenuStrip { ShowImageMargin = false };
+        if (Application.IsDarkModeEnabled)
+        {
+            menu.BackColor = Theme.Surface;
+            menu.ForeColor = Theme.Text;
+        }
+        foreach (var (group, otp) in groups)
+        {
+            var item = new ToolStripMenuItem(otp ? $"{group}   (2FA)" : group);
+            if (Application.IsDarkModeEnabled) item.ForeColor = Theme.Text;
+            item.Click += (_, _) =>
+            {
+                _ocGroup.Text = group;
+                _ocOtp.Checked = otp;   // auto-detected from second-auth="1"
+            };
+            menu.Items.Add(item);
+        }
+        menu.Closed += (_, _) => BeginInvoke(menu.Dispose);   // deferred — never mid-dispatch
+        menu.Show(_fetch, 0, _fetch.Height);
+    }
+
+    // ----- Info tab (live tunnel state, mac parity) -----
+
+    TabPage BuildInfoTab()
+    {
+        var page = new TabPage("Info");
+        _info = new TextBox
+        {
+            Multiline = true,
+            ReadOnly = true,
+            WordWrap = true,   // long lines (Command:) wrap instead of scrolling sideways
+            ScrollBars = ScrollBars.Vertical,
+            Dock = DockStyle.Fill,
+            Font = new Font("Consolas", 9f),
+            BorderStyle = BorderStyle.None,
+        };
+        page.Controls.Add(_info);
+        return page;
+    }
+
+    void RefreshInfo()
+    {
+        if (_existing == null) return;
+        var p = _existing;
+        Task.Run(() =>
+        {
+            var tunnels = Ipc.TunnelClient.Status([p]);
+            var text = BuildInfoText(p, tunnels.TryGetValue(p.Name, out var since) ? since : null);
+            try
+            {
+                BeginInvoke(() =>
+                {
+                    if (_info.Text == text) return;
+                    if (_info.SelectionLength > 0) return;   // user is selecting/copying — don't yank it away
+                    // Setting Text resets the scroll; put the view back where it was.
+                    int firstVisible = (int)SendMessage(_info.Handle, EM_GETFIRSTVISIBLELINE, 0, 0);
+                    _info.Text = text;
+                    if (firstVisible > 0) SendMessage(_info.Handle, EM_LINESCROLL, 0, firstVisible);
+                });
+            }
+            catch (InvalidOperationException) { /* form closed */ }
+        });
+    }
+
+    const int EM_GETFIRSTVISIBLELINE = 0xCE;
+    const int EM_LINESCROLL = 0xB6;
+
+    [System.Runtime.InteropServices.DllImport("user32")]
+    static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
+
+    static string BuildInfoText(Profile p, DateTime? since)
+    {
+        var sb = new System.Text.StringBuilder();
+        void Row(string key, string? value)
+        {
+            if (value != null) sb.AppendLine($"{key,-15}{value}");
+        }
+
+        if (since == null)
+        {
+            Row("Status:", "Disconnected");
+            sb.AppendLine();
+            Row("Command:", Ipc.TunnelClient.CommandLine(p));
+            return sb.ToString();
+        }
+
+        var net = TunnelNetInfo.Read(p);
+        Row("Status:", "Connected");
+        Row("Uptime:", Format.Elapsed(DateTime.Now - since.Value));
+        Row("Interface:", net.Iface);
+
+        // Traffic counters for the tunnel adapter (the mac netstat -ib step).
+        if (net.Iface != null)
+        {
+            var nic = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+                .FirstOrDefault(n => string.Equals(n.Name, net.Iface, StringComparison.OrdinalIgnoreCase));
+            if (nic?.GetIPv4Statistics() is { } s)
+            {
+                Row("Traffic in:", $"{Format.HumanBytes(s.BytesReceived)}  ({Format.Grouped(s.UnicastPacketsReceived + s.NonUnicastPacketsReceived)} packets)");
+                Row("Traffic out:", $"{Format.HumanBytes(s.BytesSent)}  ({Format.Grouped(s.UnicastPacketsSent + s.NonUnicastPacketsSent)} packets)");
+            }
+        }
+
+        Row("Internal IP:", net.InternalIP);
+        Row("Gateway:", net.Gateway);
+        Row("DNS:", net.Dns);
+        var domains = string.Join(" ", new[] { net.DefDomain, net.SplitDns, net.MatchDomains }
+            .Where(d => d != null));
+        Row("Match domains:", domains.Length > 0 ? domains : null);
+        if (net.Routes.Count > 0)
+        {
+            Row("Routes:", $"{net.Routes.Count}");
+            foreach (var r in net.Routes) sb.AppendLine($"{"",-15}{r}");
+        }
+        sb.AppendLine();
+        Row("Command:", Ipc.TunnelClient.CommandLine(p));
+        return sb.ToString();
     }
 
     // ----- Debug tab (live log tail) -----
@@ -370,9 +613,10 @@ sealed class ProfileEditorForm : Form
         BindMirror(_password, ocPassword); BindMirror(_domains, ocDomains); BindMirror(_clientCert, ocClientCert);
         AddRow(o, "Name", ocName);
         AddRow(o, "Gateway", ocGateway);
-        var fetch = new ThemedButton { Text = "Fetch groups", AutoSize = true, Enabled = false };
-        _tips.SetToolTip(fetch, "Contacts the gateway for its group list (phase 3)");
-        AddRow(o, "Auth group", _ocGroup, fetch);
+        _fetch = new ThemedButton { Text = "Fetch groups", AutoSize = true };
+        _tips.SetToolTip(_fetch, "Contacts the gateway for its group list and 2FA flags (no credentials sent)");
+        _fetch.Click += (_, _) => FetchGroups();
+        AddRow(o, "Auth group", _ocGroup, _fetch);
         AddRow(o, "Server cert", _ocServerCert);
         _ocServerCert.PlaceholderText = "pin-sha256:…";
         AddRow(o, "Username", ocUsername);
