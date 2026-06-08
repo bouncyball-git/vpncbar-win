@@ -16,23 +16,21 @@
     <NoWarn>$(NoWarn);WFO5001</NoWarn>
     <!-- Single exe, three modes: tray (default) | service | script. See docs/PORTING.md §3. -->
 
-    <!-- Release publish: self-contained single-file exe (no .NET runtime needed
-         by the end user — mirrors the mac app's one-bundle ethos). Build with:
-           dotnet publish -c Release   (or tools/publish.ps1) -->
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <SelfContained>false</SelfContained>            <!-- dev builds use the shared runtime -->
-    <PublishSingleFile>false</PublishSingleFile>
     <Company>VpncBar</Company>
     <Product>VpncBar</Product>
     <AssemblyTitle>VpncBar</AssemblyTitle>
+    <!-- Dev builds (dotnet build) are framework-dependent, output at
+         bin\Debug\net10.0-windows\. The RID + self-contained single-file
+         settings apply ONLY under publish (tools/publish.ps1 passes
+         -r win-x64 -p:_IsPublishing=true), so dev output stays RID-free. -->
   </PropertyGroup>
 
-  <!-- `dotnet publish` flips these on (see Directory.Build / tools/publish.ps1) -->
+  <!-- Release publish: framework-dependent single-file exe (~1.5 MB). Needs the
+       .NET 10 Desktop Runtime installed (the installer checks for it and warns)
+       — small download instead of a ~50 MB bundled runtime per app. -->
   <PropertyGroup Condition="'$(_IsPublishing)' == 'true'">
-    <SelfContained>true</SelfContained>
+    <SelfContained>false</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <DebugType>none</DebugType>
   </PropertyGroup>
 
@@ -48,13 +46,23 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Bundled backends → output\openconnect\ (wintun.dll beside the exe so it loads it) -->
-    <None Include="..\..\vendor\openconnect\bin\**" LinkBase="openconnect" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\vendor\wintun\bin\amd64\wintun.dll" Link="openconnect\wintun.dll" CopyToOutputDirectory="PreserveNewest" />
-    <!-- vpnc backend → output\vpnc\ (wintun.dll beside it too) -->
-    <None Include="..\..\vendor\vpnc\bin\**" LinkBase="vpnc" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\vendor\wintun\bin\amd64\wintun.dll" Link="vpnc\wintun.dll" CopyToOutputDirectory="PreserveNewest" />
+    <!-- script shim stays at the app root, next to VpncBar.exe (it relays to it) -->
     <None Include="assets\vpncbar-script.js" Link="vpncbar-script.js" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!-- Both backends live in one output\engines\ folder: openconnect.exe +
+       vpnc.exe + wintun.dll + the GnuTLS/etc DLL closure they share (one copy
+       each — Windows resolves an exe's DLLs from its own directory). The merged
+       set is produced by tools/fetch-openconnect + build-vpnc. See §4.
+       A Target (not a None glob) is used: the '..\' source path defeats
+       CopyToOutputDirectory's link-path inference. -->
+  <Target Name="CopyEngines" AfterTargets="Build">
+    <ItemGroup>
+      <EngineFile Include="..\vendor\engines\bin\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(EngineFile)"
+          DestinationFolder="$(OutDir)engines"
+          SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

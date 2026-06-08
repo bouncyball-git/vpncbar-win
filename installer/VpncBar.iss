@@ -5,8 +5,7 @@
 ; Layout installed to {app} (Program Files\VpncBar):
 ;   VpncBar.exe              self-contained single-file (tray | --service | --script)
 ;   vpncbar-script.js        openconnect --script relay
-;   openconnect\             openconnect.exe + GnuTLS DLL closure + wintun.dll
-;   vpnc\                    vpnc.exe + shared DLL closure + wintun.dll
+;   engines\                 openconnect.exe + vpnc.exe + shared DLL closure + wintun.dll
 ;
 ; The privileged service is registered post-install via "VpncBar.exe
 ; --install-service" (demand-start, tray-controlled) and removed on uninstall.
@@ -36,10 +35,9 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Files]
-Source: "..\dist\app\VpncBar.exe";         DestDir: "{app}";              Flags: ignoreversion
-Source: "..\dist\app\vpncbar-script.js";   DestDir: "{app}";              Flags: ignoreversion
-Source: "..\dist\app\openconnect\*";       DestDir: "{app}\openconnect";  Flags: ignoreversion recursesubdirs
-Source: "..\dist\app\vpnc\*";              DestDir: "{app}\vpnc";         Flags: ignoreversion recursesubdirs
+Source: "..\dist\app\VpncBar.exe";         DestDir: "{app}";          Flags: ignoreversion
+Source: "..\dist\app\vpncbar-script.js";   DestDir: "{app}";          Flags: ignoreversion
+Source: "..\dist\app\engines\*";           DestDir: "{app}\engines";  Flags: ignoreversion recursesubdirs
 Source: "..\vendor\NOTICE";                DestDir: "{app}";              DestName: "NOTICE.txt"; Flags: ignoreversion
 Source: "..\LICENSE";                      DestDir: "{app}";              DestName: "LICENSE.txt"; Flags: ignoreversion isreadme skipifsourcedoesntexist
 
@@ -62,6 +60,50 @@ Filename: "{app}\{#AppExe}"; Description: "Launch VpncBar"; Flags: nowait postin
 Filename: "{app}\{#AppExe}"; Parameters: "--uninstall-service"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"
 
 [Code]
+// VpncBar is framework-dependent: it needs the .NET 10 Desktop Runtime, which
+// is NOT in-box. Detect it by looking for a 10.x folder under the shared
+// WindowsDesktop runtime directory.
+function IsDotNet10DesktopInstalled(): Boolean;
+var
+  FindRec: TFindRec;
+  Base: String;
+begin
+  Result := False;
+  Base := ExpandConstant('{commonpf}\dotnet\shared\Microsoft.WindowsDesktop.App');
+  if FindFirst(Base + '\10.*', FindRec) then
+  try
+    repeat
+      if (FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
+      begin
+        Result := True;
+        Break;
+      end;
+    until not FindNext(FindRec);
+  finally
+    FindClose(FindRec);
+  end;
+end;
+
+// Warn (and offer the download) before installing if the runtime is missing.
+function InitializeSetup(): Boolean;
+var ErrorCode: Integer;
+begin
+  Result := True;
+  if not IsDotNet10DesktopInstalled() then
+  begin
+    if MsgBox('VpncBar needs the .NET 10 Desktop Runtime, which is not installed.' + #13#10#13#10 +
+              'Click Yes to open the download page now — install the ".NET Desktop Runtime 10.x (x64)",' + #13#10 +
+              'then run this setup again.' + #13#10#13#10 +
+              'Click No to continue installing anyway (VpncBar will not run until the runtime is installed).',
+              mbConfirmation, MB_YESNO) = IDYES then
+    begin
+      ShellExec('open', 'https://dotnet.microsoft.com/download/dotnet/10.0',
+                '', '', SW_SHOW, ewNoWait, ErrorCode);
+      Result := False;   // abort so the user installs the runtime, then re-runs setup
+    end;
+  end;
+end;
+
 // Make sure the tray isn't running (it would lock the exe and keep the
 // service alive) before we remove anything.
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

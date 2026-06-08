@@ -69,7 +69,7 @@ so they appear in neither the service's state nor any argv.
 
 | Component | What it is |
 |-----------|------------|
-| `src/VpncBar/` | The C# / WinForms app (tray + service + script modes), .NET 10 |
+| `src/` | The C# / WinForms app (tray + service + script modes), .NET 10 |
 | `vendor/vpnc/` | The vpnc engine, ported to Windows (Wintun + winsock); GPLv2. See `vendor/NOTICE` |
 | `vendor/openconnect/` | openconnect built from source (bundled, not vendored as source beyond the tarball); LGPL |
 | `vendor/wintun/` | The signed `wintun.dll` from wintun.net (shared by both backends) |
@@ -106,14 +106,17 @@ The full design rationale is in [`docs/PORTING.md`](docs/PORTING.md).
 ## Requirements
 
 - **Windows 10 1809+ / Windows 11**, x64.
-- Nothing else for end users — the released `VpncBar.exe` is self-contained
-  (the .NET runtime is bundled) and the backends + Wintun ship with it.
+- The **.NET 10 Desktop Runtime** (a small, free Microsoft download). The
+  installer detects it and points you to it if it's missing. The backends +
+  Wintun ship with VpncBar, so that's the only external prerequisite.
 
 ## Install
 
 Run the installer (`VpncBar-<version>-setup.exe`) — it lays the app out under
 `C:\Program Files\VpncBar`, registers the service, and offers a "start at
-login" option. Admin rights are required once (for the service + driver).
+login" option. Admin rights are required once (for the service + driver). If
+the **.NET 10 Desktop Runtime** isn't present, the installer offers to open its
+download page first.
 
 > The installer is currently **unsigned**; SmartScreen may warn on first run
 > ("More info" → "Run anyway"). Code-signing is planned.
@@ -136,7 +139,7 @@ tools\publish.ps1             # self-contained app → dist\app
 tools\build-installer.ps1     # installer          → dist\VpncBar-<ver>-setup.exe
 ```
 
-For day-to-day development, `dotnet build src\VpncBar` produces a framework-
+For day-to-day development, `dotnet build src` produces a framework-
 dependent build under `bin\Debug`; register the service once with
 `VpncBar.exe --install-service` from an elevated prompt, then run the tray exe.
 Each `tools\*.ps1` script records the exact source tag and dependency versions
@@ -174,7 +177,7 @@ the `vpnc-<uuid>-…` items in Credential Manager.
 
 ## Licensing
 
-The application (`src/VpncBar`) is under this repository's
+The application (`src/`) is under this repository's
 [`LICENSE`](LICENSE). The bundled backends are GPL/LGPL: **vpnc** is GPLv2
 (full modified source in `vendor/vpnc`), **openconnect** and its GnuTLS stack
 are LGPL, and **Wintun** ships under WireGuard LLC's prebuilt-binaries license.

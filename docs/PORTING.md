@@ -95,8 +95,7 @@ directly via the same shared classes the service uses.
 
 ```
 vpncbar-win/
-├── src/
-│   └── VpncBar/             # single C# project: tray + service + script modes
+├── src/                     # single C# project: tray + service + script modes
 ├── vendor/
 │   ├── vpnc/                # vendored vpnc fork (from the mac repo) + Windows port
 │   ├── openconnect/         # bundled binaries + dependency DLLs + source provenance

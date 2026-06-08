@@ -1,5 +1,7 @@
 bin/
 src/vpnc-debug.*
 *.o
+*.exe
+*.dll
 *.8
 .DS_Store

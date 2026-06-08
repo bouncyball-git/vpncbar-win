@@ -1,6 +1,6 @@
-# Build openconnect from source (MSYS2/mingw64) and collect the binaries into
-# vendor/openconnect/bin (gitignored). This is the canonical recipe — the CI
-# workflow mirrors it. Requires MSYS2 at C:\msys64 with:
+# Build openconnect from source (MSYS2/mingw64) and collect its binaries into
+# the shared vendor/engines/bin (gitignored), where vpnc lands too. Requires
+# MSYS2 at C:\msys64 with:
 #   pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf \
 #       mingw-w64-x86_64-gnutls mingw-w64-x86_64-libxml2 mingw-w64-x86_64-zlib make
 param([string]$Version = '9.12')
@@ -8,11 +8,13 @@ param([string]$Version = '9.12')
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path "$PSScriptRoot\.."
 $oc = "$root\vendor\openconnect"
+$eng = "$root\vendor\engines\bin"
 $tarball = "$oc\src\openconnect-$Version.tar.gz"
 $bash = 'C:\msys64\usr\bin\bash.exe'
 if (-not (Test-Path $bash)) { throw 'MSYS2 not found at C:\msys64' }
 
-New-Item -ItemType Directory -Force "$oc\src", "$oc\bin" | Out-Null
+New-Item -ItemType Directory -Force "$oc\src", $eng | Out-Null
+Copy-Item "$root\vendor\wintun\bin\amd64\wintun.dll" $eng -Force
 if (-not (Test-Path $tarball)) {
     Invoke-WebRequest -Uri "https://www.infradead.org/openconnect/download/openconnect-$Version.tar.gz" -OutFile $tarball
 }
@@ -36,19 +38,20 @@ make -j8 CFLAGS='-O2 -Wno-incompatible-pointer-types'
 "@
 if ($LASTEXITCODE -ne 0) { throw "openconnect build failed" }
 
-# Collect openconnect.exe (+ libopenconnect dll) and the mingw64 DLL closure.
+# Collect openconnect.exe (+ libopenconnect dll) and the mingw64 DLL closure
+# straight into the shared engines dir (ldd over everything there converges
+# the union across both backends).
 & $bash -lc @"
 set -e
-cd $rootMsys/vendor/openconnect
-rm -f bin/*
-cp build/openconnect-$Version/.libs/openconnect.exe bin/ 2>/dev/null || cp build/openconnect-$Version/openconnect.exe bin/
-cp build/openconnect-$Version/.libs/*.dll bin/ 2>/dev/null || true
+cd $rootMsys/vendor/engines/bin
+cp $rootMsys/vendor/openconnect/build/openconnect-$Version/.libs/openconnect.exe . 2>/dev/null || cp $rootMsys/vendor/openconnect/build/openconnect-$Version/openconnect.exe .
+cp $rootMsys/vendor/openconnect/build/openconnect-$Version/.libs/*.dll . 2>/dev/null || true
 for i in 1 2 3; do   # closure is transitive; a few passes converge
-  for f in bin/*.exe bin/*.dll; do
+  for f in *.exe *.dll; do
     ldd "`$f" 2>/dev/null | awk '/mingw64/ {print `$3}'
-  done | sort -u | while read d; do cp -n "`$d" bin/ 2>/dev/null || true; done
+  done | sort -u | while read d; do cp -n "`$d" . 2>/dev/null || true; done
 done
-ls -la bin/
+ls -la
 "@
 if ($LASTEXITCODE -ne 0) { throw "collecting binaries failed" }
 
@@ -60,4 +63,4 @@ openconnect $Version — built from src/openconnect-$Version.tar.gz
 Dependency packages at build time:
 $($pkgs -join "`n")
 "@ | Set-Content "$oc\VERSIONS.txt"
-"done -> $oc\bin"
+"done -> $eng"
