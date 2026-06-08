@@ -43,7 +43,6 @@ Source: "..\..\LICENSE";                      DestDir: "{app}";              Des
 
 [Icons]
 Name: "{group}\VpncBar";          Filename: "{app}\{#AppExe}"
-Name: "{userstartup}\VpncBar";    Filename: "{app}\{#AppExe}";  Tasks: autostart
 
 [Tasks]
 Name: autostart; Description: "Start VpncBar automatically at login"; GroupDescription: "Startup:"
@@ -52,6 +51,10 @@ Name: launch;    Description: "Launch VpncBar now";                    GroupDesc
 [Run]
 ; Register the privileged service (demand-start, tray-controlled lifetime).
 Filename: "{app}\{#AppExe}"; Parameters: "--install-service"; Flags: runhidden waituntilterminated; StatusMsg: "Registering the VpncBar service..."
+; Enable start-at-login by running the app AS THE ORIGINAL USER, so it writes
+; the HKCU Run key for the right account (not the elevated admin's). Avoids the
+; per-user-area-in-admin-install pitfall of a {userstartup} shortcut.
+Filename: "{app}\{#AppExe}"; Parameters: "--enable-autostart"; Flags: runhidden runasoriginaluser; Tasks: autostart
 ; Launch the tray (it starts the service); not elevated, so the tray runs as the user.
 Filename: "{app}\{#AppExe}"; Description: "Launch VpncBar"; Flags: nowait postinstall skipifsilent runasoriginaluser; Tasks: launch
 

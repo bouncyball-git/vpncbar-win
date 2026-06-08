@@ -22,6 +22,9 @@ static class Program
                 return Service.ServiceInstaller.Install();
             case "--uninstall-service":
                 return Service.ServiceInstaller.Uninstall();
+            case "--enable-autostart":   // installer runs this as the original user (HKCU Run)
+                Core.AutoStart.SetEnabled(true);
+                return 0;
             case "--make-icon":   // dev aid: regenerate assets/VpncBar.ico from the SVG art
                 return Tray.TrayIcons.WriteIco(args.ElementAtOrDefault(1) ?? "VpncBar.ico");
             case "--ui-demo":   // dev aid: open the profile editor directly (UI iteration/screenshots)
