@@ -87,23 +87,48 @@ begin
   end;
 end;
 
-// Warn (and offer the download) before installing if the runtime is missing.
-function InitializeSetup(): Boolean;
-var ErrorCode: Integer;
+// If the .NET 10 Desktop Runtime is missing, offer to download + install it
+// inline (setup is elevated, so a machine-wide runtime install works). Runs
+// after the user clicks Install; returning a non-empty string aborts with that
+// message. Falls back to opening the download page if the auto-install fails.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+  Installer: String;
 begin
-  Result := True;
+  Result := '';
+  if IsDotNet10DesktopInstalled() then
+    exit;
+
+  if MsgBox('VpncBar needs the .NET 10 Desktop Runtime (x64), which is not installed.' + #13#10#13#10 +
+            'Download (~55 MB) and install it now?' + #13#10#13#10 +
+            'Choose No to cancel (VpncBar can''t run without it).',
+            mbConfirmation, MB_YESNO) <> IDYES then
+  begin
+    Result := 'The .NET 10 Desktop Runtime is required. Setup was cancelled.';
+    exit;
+  end;
+
+  // aka.ms serves the latest 10.0 desktop-runtime build; download to {tmp}.
+  Installer := ExpandConstant('{tmp}\windowsdesktop-runtime-10-x64.exe');
+  try
+    DownloadTemporaryFile('https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe',
+                          'windowsdesktop-runtime-10-x64.exe', '', nil);
+  except
+    Installer := '';   // download failed
+  end;
+
+  if (Installer <> '') and FileExists(Installer) then
+    if Exec(Installer, '/install /quiet /norestart', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
+      if ResultCode = 3010 then NeedsRestart := True;   // 3010 = installed, restart pending
+
   if not IsDotNet10DesktopInstalled() then
   begin
-    if MsgBox('VpncBar needs the .NET 10 Desktop Runtime, which is not installed.' + #13#10#13#10 +
-              'Click Yes to open the download page now — install the ".NET Desktop Runtime 10.x (x64)",' + #13#10 +
-              'then run this setup again.' + #13#10#13#10 +
-              'Click No to continue installing anyway (VpncBar will not run until the runtime is installed).',
-              mbConfirmation, MB_YESNO) = IDYES then
-    begin
-      ShellExec('open', 'https://dotnet.microsoft.com/download/dotnet/10.0',
-                '', '', SW_SHOW, ewNoWait, ErrorCode);
-      Result := False;   // abort so the user installs the runtime, then re-runs setup
-    end;
+    // Auto-install didn't take — point the user at the manual download.
+    ShellExec('open', 'https://dotnet.microsoft.com/download/dotnet/10.0', '', '', SW_SHOW, ewNoWait, ResultCode);
+    Result := 'The .NET 10 Desktop Runtime could not be installed automatically.' + #13#10 +
+              'The download page has been opened — install the "Desktop Runtime 10 (x64)",' + #13#10 +
+              'then run this setup again.';
   end;
 end;
 
