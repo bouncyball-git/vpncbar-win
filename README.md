@@ -117,24 +117,24 @@ download page first.
 
 ## Build from source
 
-Prerequisites: **.NET 10 SDK**, **MSYS2** at `C:\msys64` with the mingw64
-toolchain, and (for the installer) **Inno Setup 6**.
+Prerequisites: **.NET 10 SDK** and (for the installer) **Inno Setup 6**. The
+MSYS2/mingw64 build toolchain is provisioned into `vendor\msys64` by
+`setup-msys.ps1` — no global install needed (a global `C:\msys64` is used as a
+fallback if you have one).
 
 ```powershell
-# one-time: install the mingw build deps
-C:\msys64\usr\bin\pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf `
-    mingw-w64-x86_64-gnutls mingw-w64-x86_64-libgcrypt mingw-w64-x86_64-libxml2 `
-    mingw-w64-x86_64-zlib make perl
-
+.\setup-msys.ps1           # MSYS2 + mingw toolchain  → vendor\msys64  (~2-3 GB)
 .\fetch-wintun.ps1         # signed wintun.dll        → vendor\wintun
 .\fetch-openconnect.ps1    # build openconnect        → dist\backend
 .\build-vpnc.ps1           # build vpnc.exe           → dist\backend
 .\publish.ps1              # framework-dependent app  → dist\app
-.\build-installer.ps1      # installer                → dist\VpncBar-<ver>-setup.exe
+.\build-installer.ps1      # installer                → dist\setup\VpncBar-<ver>-setup.exe
 ```
 
-(The build/helper scripts — `build-app.ps1`, `fetch-*.ps1`, `build-vpnc.ps1`,
-`publish.ps1`, `build-installer.ps1`, `make-icon.ps1` — live in the repo root.)
+All build/helper scripts live in the repo root: `setup-msys.ps1`,
+`fetch-wintun.ps1`, `fetch-openconnect.ps1`, `build-vpnc.ps1`, `build-app.ps1`,
+`publish.ps1`, `build-installer.ps1`, `make-icon.ps1`, and `clean.ps1`
+(`clean.ps1 -All` resets the backends + toolchain to a from-scratch state).
 
 For day-to-day development, `.\build-app.ps1` (or `dotnet build src`) produces a
 framework-dependent build under `src\bin`; register the service once with

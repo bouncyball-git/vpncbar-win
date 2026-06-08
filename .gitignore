@@ -11,14 +11,15 @@ dist/*
 dist/setup/*
 !dist/setup/VpncBar.iss
 
-# fetched / built binaries — regenerate with the tools/ scripts:
-#   tools/fetch-wintun.ps1       -> vendor/wintun/bin
-#   tools/fetch-openconnect.ps1  -> vendor/engines/bin (+ openconnect/build tree)
-#   tools/build-vpnc.ps1         -> vendor/engines/bin
-# both backends land in ONE merged folder, vendor/engines/bin (the bundled set).
+# fetched / built / provisioned under vendor — regenerate with the root scripts:
+#   fetch-wintun.ps1       -> vendor/wintun/bin
+#   fetch-openconnect.ps1  -> dist/backend (+ vendor/openconnect/build tree)
+#   build-vpnc.ps1         -> dist/backend
+#   setup-msys.ps1         -> vendor/msys64 (the ~2-3 GB MSYS2 build toolchain)
+# Both compiled backends land in dist/backend (covered by dist/* above).
 # (vendor/openconnect/src/*.tar.gz IS committed: LGPL source provenance)
+vendor/msys64/
 vendor/openconnect/build/
 vendor/wintun/bin/
-vendor/engines/bin/
 # (vpnc builds in-place in vendor/vpnc/src — its build products are ignored
 #  by vendor/vpnc/.gitignore)

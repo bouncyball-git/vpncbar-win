@@ -1,6 +1,6 @@
 # Build openconnect from source (MSYS2/mingw64) and collect its binaries
 # straight into the shared dist/backend (gitignored), where vpnc lands too.
-# Requires MSYS2 at C:\msys64 with:
+# Requires MSYS2 at vendor\msys64 (or a global C:\msys64) with:
 #   pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf \
 #       mingw-w64-x86_64-gnutls mingw-w64-x86_64-libxml2 mingw-w64-x86_64-zlib make
 param([string]$Version = '9.12')
@@ -10,8 +10,11 @@ $root = Resolve-Path "$PSScriptRoot"
 $oc = "$root\vendor\openconnect"
 $eng = "$root\dist\backend"
 $tarball = "$oc\src\openconnect-$Version.tar.gz"
-$bash = 'C:\msys64\usr\bin\bash.exe'
-if (-not (Test-Path $bash)) { throw 'MSYS2 not found at C:\msys64' }
+# Prefer the vendored MSYS2 (vendor\msys64); fall back to a global C:\msys64.
+$msys = "$root\vendor\msys64"
+if (-not (Test-Path "$msys\usr\bin\bash.exe")) { $msys = 'C:\msys64' }
+$bash = "$msys\usr\bin\bash.exe"
+if (-not (Test-Path $bash)) { throw 'MSYS2 not found - run setup-msys.ps1 first' }
 
 New-Item -ItemType Directory -Force "$oc\src", $eng | Out-Null
 Copy-Item "$root\vendor\wintun\bin\amd64\wintun.dll" $eng -Force
@@ -56,7 +59,7 @@ ls -la
 if ($LASTEXITCODE -ne 0) { throw "collecting binaries failed" }
 
 # Provenance for the LGPL source offer + NOTICE.
-$pkgs = & C:\msys64\usr\bin\pacman.exe -Q mingw-w64-x86_64-gnutls mingw-w64-x86_64-libxml2 mingw-w64-x86_64-zlib mingw-w64-x86_64-gcc 2>$null
+$pkgs = & "$msys\usr\bin\pacman.exe" -Q mingw-w64-x86_64-gnutls mingw-w64-x86_64-libxml2 mingw-w64-x86_64-zlib mingw-w64-x86_64-gcc 2>$null
 @"
 openconnect $Version — built from src/openconnect-$Version.tar.gz
 (https://www.infradead.org/openconnect/download/) with MSYS2 mingw64.
