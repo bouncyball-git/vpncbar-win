@@ -46,6 +46,24 @@ static class CredentialManager
 
     public static void Delete(string target) => CredDeleteW(target, CRED_TYPE_GENERIC, 0);
 
+    // Delete every VpncBar credential (vpnc-<uuid>-secret / -password). Used by
+    // the uninstaller's "remove credentials" option. Operates on the current
+    // user's store, so it must run as that user.
+    public static void DeleteAll()
+    {
+        if (!CredEnumerateW("vpnc-*", 0, out var count, out var pCreds)) return;
+        try
+        {
+            for (int i = 0; i < count; i++)
+            {
+                var pCred = Marshal.ReadIntPtr(pCreds, i * IntPtr.Size);
+                var cred = Marshal.PtrToStructure<NativeCredential>(pCred);
+                if (cred.TargetName != null) CredDeleteW(cred.TargetName, cred.Type, 0);
+            }
+        }
+        finally { CredFree(pCreds); }
+    }
+
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     struct NativeCredential
     {
@@ -71,6 +89,9 @@ static class CredentialManager
 
     [DllImport("advapi32", CharSet = CharSet.Unicode, SetLastError = true)]
     static extern bool CredDeleteW(string target, uint type, uint flags);
+
+    [DllImport("advapi32", CharSet = CharSet.Unicode, SetLastError = true)]
+    static extern bool CredEnumerateW(string? filter, int flags, out int count, out IntPtr credentials);
 
     [DllImport("advapi32")]
     static extern void CredFree(IntPtr buffer);

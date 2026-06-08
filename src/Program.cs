@@ -25,6 +25,13 @@ static class Program
             case "--enable-autostart":   // installer runs this as the original user (HKCU Run)
                 Core.AutoStart.SetEnabled(true);
                 return 0;
+            case "--purge-profiles":     // uninstaller (as the original user): delete %APPDATA%\vpncbar
+                try { Directory.Delete(Core.Paths.ConfigDir, recursive: true); }
+                catch (Exception) { /* already gone */ }
+                return 0;
+            case "--purge-credentials":  // uninstaller (as the original user): drop the vpnc-* secrets
+                Core.CredentialManager.DeleteAll();
+                return 0;
             case "--make-icon":   // dev aid: regenerate assets/VpncBar.ico from the SVG art
                 return Tray.TrayIcons.WriteIco(args.ElementAtOrDefault(1) ?? "VpncBar.ico");
             case "--ui-demo":   // dev aid: open the profile editor directly (UI iteration/screenshots)

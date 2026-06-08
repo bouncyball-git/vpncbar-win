@@ -107,11 +107,27 @@ begin
   end;
 end;
 
-// Make sure the tray isn't running (it would lock the exe and keep the
-// service alive) before we remove anything.
+// On uninstall: stop the tray, then ask separately whether to also remove the
+// user's saved profiles and stored credentials. Those live in the original
+// (non-elevated) user's profile, so the purge runs AS THAT USER via the app's
+// --purge-* modes (the uninstaller itself is elevated). Both are kept by
+// default; session logs and the program's own removal are unaffected.
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var ResultCode: Integer;
 begin
   if CurUninstallStep = usUninstall then
+  begin
     Exec('taskkill.exe', '/IM VpncBar.exe /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    if MsgBox('Also remove your saved VPN profiles?' + #13#10#13#10 +
+              'Choose No to keep them for a future reinstall.',
+              mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+      ExecAsOriginalUser(ExpandConstant('{app}\{#AppExe}'), '--purge-profiles', '',
+                         SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    if MsgBox('Also remove your saved passwords / group secrets from Windows' + #13#10 +
+              'Credential Manager?' + #13#10#13#10 +
+              'Choose No to keep them for a future reinstall.',
+              mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+      ExecAsOriginalUser(ExpandConstant('{app}\{#AppExe}'), '--purge-credentials', '',
+                         SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  end;
 end;
