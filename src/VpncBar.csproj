@@ -57,8 +57,11 @@
        dev build copies it here so the local exe can run tunnels. Empty/absent
        until the backends are built — that's fine (the app just can't connect).
        A Target (not a None glob) is used: the '..\' source path defeats
-       CopyToOutputDirectory's link-path inference. -->
-  <Target Name="CopyBackend" AfterTargets="Build">
+       CopyToOutputDirectory's link-path inference.
+       Skipped during publish: the release ships only the exe to dist\app and
+       gets its backend from dist\backend (via the installer), so copying it
+       into the publish intermediate would just waste ~17 MB. -->
+  <Target Name="CopyBackend" AfterTargets="Build" Condition="'$(_IsPublishing)' != 'true'">
     <ItemGroup>
       <BackendFile Include="..\dist\backend\*" />
     </ItemGroup>
