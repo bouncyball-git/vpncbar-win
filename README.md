@@ -138,15 +138,34 @@ fallback if you have one).
 
 All build/helper scripts live in the `scripts\` folder: `build-all.ps1`, `setup-msys.ps1`,
 `fetch-wintun.ps1`, `build-openconnect.ps1`, `build-vpnc.ps1`, `build-app.ps1`,
-`publish-app.ps1`, `build-installer.ps1`, `make-icon.ps1`, and `clean.ps1`
-(`clean.ps1 -All` resets the backends + toolchain to a from-scratch state).
+`publish-app.ps1`, `build-installer.ps1`, `install-dev.ps1`, `uninstall-dev.ps1`,
+`make-icon.ps1`, and `clean.ps1` (`clean.ps1 -All` resets the backends + toolchain
+to a from-scratch state).
 
-For day-to-day development, `.\scripts\build-app.ps1` (or `dotnet build src`) produces a
-framework-dependent build under `src\bin`; register the service once with
-`VpncBar.exe --install-service` from an elevated prompt, then run the tray exe.
-Each backend script records the exact source tag and dependency versions
-it builds from (`vendor\openconnect\VERSIONS.txt`), so the backend builds are
-reproducible.
+### Run from source (without building the installer)
+
+Once the backends exist in `dist\backend` (one `.\scripts\build-all.ps1`, or the
+two `build-*` backend scripts), install the dev build straight from `src\bin`:
+
+```powershell
+.\scripts\install-dev.ps1              # build (Debug), register the service, launch the tray
+.\scripts\install-dev.ps1 -Release     # use the Release build instead
+.\scripts\uninstall-dev.ps1            # stop + deregister the service, remove installed files
+```
+
+`install-dev` builds the app, registers the Windows service against the local
+exe (the one step that self-elevates for UAC), and launches the tray — the
+from-source equivalent of running the real installer. Re-run it after a code
+change to re-point the service at the fresh build.
+
+`uninstall-dev` stops the tray, deregisters the service, and removes any
+installed program files — it then **asks separately** whether to also delete
+your saved profiles and stored credentials (both kept by default). It never
+touches the build in `src\bin` or the session logs in `%ProgramData%\VpncBar`.
+
+`.\scripts\build-app.ps1` alone just builds (`dotnet build src` works too); each
+backend script records its exact source tag + dependency versions
+(`vendor\openconnect\VERSIONS.txt`) for reproducible backend builds.
 
 ## Usage
 

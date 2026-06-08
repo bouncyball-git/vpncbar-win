@@ -53,6 +53,7 @@ sealed class ThemedCombo : Control
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.AllowNull]   // match Control.Text's nullable setter
     public override string Text
     {
         get => SelectedItem ?? "";
@@ -167,10 +168,13 @@ sealed class ThemedCombo : Control
             }
         }
 
+#pragma warning disable CS0649 // layout struct — the OS fills these; the unused
+                               // fields keep ptMinTrackSize at the right offset.
         struct MINMAXINFO
         {
             public Point ptReserved, ptMaxSize, ptMaxPosition, ptMinTrackSize, ptMaxTrackSize;
         }
+#pragma warning restore CS0649
     }
 
     protected override bool IsInputKey(Keys keyData) =>

@@ -10,7 +10,7 @@ namespace VpncBar.Service;
 // ACL: Authenticated Users read/write — any interactive user may operate
 // tunnels, the same threat model as the mac NOPASSWD sudoers rule. The
 // service only ever executes its own fixed binaries (see TunnelManager).
-sealed class PipeServer(TunnelManager manager, OwnerWatcher watcher, Action<string> log)
+sealed class PipeServer(TunnelManager manager, OwnerWatcher watcher)
 {
     public async Task RunAsync(CancellationToken ct)
     {

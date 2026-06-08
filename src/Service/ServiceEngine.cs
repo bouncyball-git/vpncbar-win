@@ -24,7 +24,7 @@ sealed class ServiceEngine
         _manager = new TunnelManager(Log);
         _watcher = new OwnerWatcher(onOrphaned: OnOrphaned, Log);
         _watcher.StartGraceTimer();
-        _serverTask = new PipeServer(_manager, _watcher, Log).RunAsync(_cts.Token);
+        _serverTask = new PipeServer(_manager, _watcher).RunAsync(_cts.Token);
         Log("service started");
     }
 
