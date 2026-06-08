@@ -14,14 +14,14 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <!-- WinForms dark mode (Application.SetColorMode) is still marked experimental -->
     <NoWarn>$(NoWarn);WFO5001</NoWarn>
-    <!-- Single exe, three modes: tray (default) | service | script. See docs/PORTING.md §3. -->
+    <!-- Single exe, three modes: tray (default) | service | script. -->
 
     <Company>VpncBar</Company>
     <Product>VpncBar</Product>
     <AssemblyTitle>VpncBar</AssemblyTitle>
     <!-- Dev builds (dotnet build) are framework-dependent, output at
          bin\Debug\net10.0-windows\. The RID + self-contained single-file
-         settings apply ONLY under publish (tools/publish.ps1 passes
+         settings apply ONLY under publish (publish.ps1 passes
          -r win-x64 -p:_IsPublishing=true), so dev output stays RID-free. -->
   </PropertyGroup>
 
@@ -53,7 +53,7 @@
   <!-- Both backends live in one output\engines\ folder: openconnect.exe +
        vpnc.exe + wintun.dll + the GnuTLS/etc DLL closure they share (one copy
        each — Windows resolves an exe's DLLs from its own directory). The merged
-       set is produced by tools/fetch-openconnect + build-vpnc. See §4.
+       set is produced by fetch-openconnect + build-vpnc. See §4.
        A Target (not a None glob) is used: the '..\' source path defeats
        CopyToOutputDirectory's link-path inference. -->
   <Target Name="CopyEngines" AfterTargets="Build">

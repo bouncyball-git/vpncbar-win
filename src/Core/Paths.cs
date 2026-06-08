@@ -1,6 +1,6 @@
 namespace VpncBar.Core;
 
-// Storage map (docs/PORTING.md §7):
+// Storage map:
 //   profiles (no secrets)  %APPDATA%\vpncbar\profiles.json   (tray-owned)
 //   session logs / .info   %ProgramData%\VpncBar\run\        (service-owned)
 //   binaries               <install dir>\bin\

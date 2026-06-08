@@ -3,7 +3,7 @@
 # Requires Inno Setup 6 (winget install JRSoftware.InnoSetup).
 
 $ErrorActionPreference = 'Stop'
-$root = Resolve-Path "$PSScriptRoot\.."
+$root = Resolve-Path "$PSScriptRoot"
 
 & "$PSScriptRoot\publish.ps1"
 

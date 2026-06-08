@@ -9,7 +9,7 @@ namespace VpncBar.Tray;
 // document order and scaled by the file's viewBox, so editing the SVGs
 // (colors OR geometry) restyles the app on rebuild with no code changes.
 // `VpncBar.exe --make-icon <out.ico>` regenerates the exe icon from the
-// same art (see tools/make-icon.ps1).
+// same art (see make-icon.ps1).
 static class TrayIcons
 {
     // NB: must be declared before the properties below — static initializers

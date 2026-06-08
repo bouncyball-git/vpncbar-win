@@ -8,7 +8,7 @@
 param([switch]$Debug)
 
 $ErrorActionPreference = 'Stop'
-$root = Resolve-Path "$PSScriptRoot\.."
+$root = Resolve-Path "$PSScriptRoot"
 $proj = "$root\src\VpncBar.csproj"
 $config = if ($Debug) { 'Debug' } else { 'Release' }
 

@@ -4,12 +4,12 @@
 param([string]$Configuration = 'Release')
 
 $ErrorActionPreference = 'Stop'
-$root = Resolve-Path "$PSScriptRoot\.."
+$root = Resolve-Path "$PSScriptRoot"
 $proj = "$root\src\VpncBar.csproj"
 $out = "$root\dist\app"
 
-if (-not (Test-Path "$root\vendor\engines\bin\openconnect.exe")) { throw 'run tools/fetch-openconnect.ps1 first' }
-if (-not (Test-Path "$root\vendor\engines\bin\vpnc.exe")) { throw 'run tools/build-vpnc.ps1 first' }
+if (-not (Test-Path "$root\vendor\engines\bin\openconnect.exe")) { throw 'run fetch-openconnect.ps1 first' }
+if (-not (Test-Path "$root\vendor\engines\bin\vpnc.exe")) { throw 'run build-vpnc.ps1 first' }
 
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 dotnet publish $proj -c $Configuration -r win-x64 --self-contained false -o $out -p:_IsPublishing=true --nologo

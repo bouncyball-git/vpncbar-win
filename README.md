@@ -13,10 +13,6 @@ It's the Windows counterpart of the macOS [VpncBar](../vpncbar): the same
 profile schema, the same lean "everything in one place" ethos, a dark-mode
 WinForms UI, and a privileged background service that owns the tunnels.
 
-<p align="center">
-  <img src="docs/VpncBar.png" width="420" alt="VpncBar screenshot">
-</p>
-
 ## Contents
 
 - [How it's put together](#how-its-put-together)
@@ -74,8 +70,6 @@ so they appear in neither the service's state nor any argv.
 | `vendor/openconnect/` | openconnect built from source (bundled, not vendored as source beyond the tarball); LGPL |
 | `vendor/wintun/` | The signed `wintun.dll` from wintun.net (shared by both backends) |
 
-The full design rationale is in [`docs/PORTING.md`](docs/PORTING.md).
-
 ## Features
 
 - **Tray menu is the UI** — one row per profile with a ✓ when connected and a
@@ -132,17 +126,20 @@ C:\msys64\usr\bin\pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgco
     mingw-w64-x86_64-gnutls mingw-w64-x86_64-libgcrypt mingw-w64-x86_64-libxml2 `
     mingw-w64-x86_64-zlib make perl
 
-tools\fetch-wintun.ps1        # signed wintun.dll  → vendor\wintun
-tools\fetch-openconnect.ps1   # build openconnect  → vendor\openconnect\bin
-tools\build-vpnc.ps1          # build vpnc.exe     → vendor\vpnc\bin
-tools\publish.ps1             # self-contained app → dist\app
-tools\build-installer.ps1     # installer          → dist\VpncBar-<ver>-setup.exe
+.\fetch-wintun.ps1         # signed wintun.dll        → vendor\wintun
+.\fetch-openconnect.ps1    # build openconnect        → vendor\engines\bin
+.\build-vpnc.ps1           # build vpnc.exe           → vendor\engines\bin
+.\publish.ps1              # framework-dependent app  → dist\app
+.\build-installer.ps1      # installer                → dist\VpncBar-<ver>-setup.exe
 ```
 
-For day-to-day development, `dotnet build src` produces a framework-
-dependent build under `bin\Debug`; register the service once with
+(The build/helper scripts — `build-app.ps1`, `fetch-*.ps1`, `build-vpnc.ps1`,
+`publish.ps1`, `build-installer.ps1`, `make-icon.ps1` — live in the repo root.)
+
+For day-to-day development, `.\build-app.ps1` (or `dotnet build src`) produces a
+framework-dependent build under `src\bin`; register the service once with
 `VpncBar.exe --install-service` from an elevated prompt, then run the tray exe.
-Each `tools\*.ps1` script records the exact source tag and dependency versions
+Each backend script records the exact source tag and dependency versions
 it builds from (`vendor\openconnect\VERSIONS.txt`), so the backend builds are
 reproducible.
 

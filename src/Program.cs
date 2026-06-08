@@ -2,7 +2,7 @@ using VpncBar.Tray;
 
 namespace VpncBar;
 
-// One executable, multiple modes (docs/PORTING.md §3):
+// One executable, multiple modes:
 //   VpncBar.exe                → tray app (per-user, unprivileged)
 //   VpncBar.exe --service      → Windows service (LocalSystem)     [phase 2]
 //   VpncBar.exe --script       → network-config shim for backends  [phase 3]

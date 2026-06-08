@@ -1,5 +1,5 @@
 ; VpncBar Windows installer (Inno Setup 6).
-; Build:  iscc installer\VpncBar.iss   (after tools\publish.ps1)
+; Build:  iscc installer\VpncBar.iss   (after publish.ps1)
 ; Produces dist\VpncBar-<version>-setup.exe.
 ;
 ; Layout installed to {app} (Program Files\VpncBar):
