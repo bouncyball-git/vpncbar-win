@@ -9,8 +9,8 @@ $root = Resolve-Path "$PSScriptRoot\.."
 function Resolve-Iscc {
     $c = (Get-Command iscc -ErrorAction SilentlyContinue).Source
     if ($c) { return $c }
-    foreach ($p in "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe",
-                   "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+    foreach ($p in "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+                   "${env:ProgramFiles}\Inno Setup 6\ISCC.exe",
                    "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe") {
         if (Test-Path $p) { return $p }
     }

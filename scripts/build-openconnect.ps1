@@ -22,7 +22,7 @@ if (-not (Test-Path $tarball)) {
     Invoke-WebRequest -Uri "https://www.infradead.org/openconnect/download/openconnect-$Version.tar.gz" -OutFile $tarball
 }
 
-$rootMsys = ($root -replace '\\', '/' -replace '^([A-Za-z]):', { '/' + $_.Groups[1].Value.ToLower() })
+$rootMsys = '/' + "$root".Substring(0, 1).ToLower() + ("$root".Substring(2) -replace '\\', '/')   # G:\x -> /g/x (Windows PowerShell 5.1 + pwsh 7)
 $env:MSYSTEM = 'MINGW64'
 
 # Build. Notes baked into the flags:

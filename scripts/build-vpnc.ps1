@@ -7,7 +7,7 @@
 
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path "$PSScriptRoot\.."
-$rootMsys = ($root -replace '\\', '/' -replace '^([A-Za-z]):', { '/' + $_.Groups[1].Value.ToLower() })
+$rootMsys = '/' + "$root".Substring(0, 1).ToLower() + ("$root".Substring(2) -replace '\\', '/')   # G:\x -> /g/x (Windows PowerShell 5.1 + pwsh 7)
 # Prefer the vendored MSYS2 (vendor\msys64); fall back to a global C:\msys64.
 $bash = "$root\vendor\msys64\usr\bin\bash.exe"
 if (-not (Test-Path $bash)) { $bash = 'C:\msys64\usr\bin\bash.exe' }
