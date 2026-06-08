@@ -13,7 +13,7 @@
 #                      the fetch scripts recreate them either way.)
 param([switch]$All)
 
-$root = $PSScriptRoot
+$root = Resolve-Path "$PSScriptRoot\.."
 
 function Nuke($path) {
     if (Test-Path $path) { Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue; "  - $path" }

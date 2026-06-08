@@ -2,7 +2,7 @@
 # run this after a fresh clone). Version pinned; bump deliberately.
 param([string]$Version = '0.14.1')
 
-$w = "$PSScriptRoot\vendor\wintun"
+$w = "$PSScriptRoot\..\vendor\wintun"
 $zip = "$w\wintun.zip"
 New-Item -ItemType Directory -Force "$w\bin\amd64", "$w\bin\arm64" | Out-Null
 Invoke-WebRequest -Uri "https://www.wintun.net/builds/wintun-$Version.zip" -OutFile $zip

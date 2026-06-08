@@ -6,7 +6,7 @@
 param([string]$Version = '9.12')
 
 $ErrorActionPreference = 'Stop'
-$root = Resolve-Path "$PSScriptRoot"
+$root = Resolve-Path "$PSScriptRoot\.."
 $oc = "$root\vendor\openconnect"
 $eng = "$root\dist\backend"
 $tarball = "$oc\src\openconnect-$Version.tar.gz"

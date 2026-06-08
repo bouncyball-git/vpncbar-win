@@ -11,7 +11,7 @@
 param([switch]$Force)
 
 $ErrorActionPreference = 'Stop'
-$root = $PSScriptRoot
+$root = Resolve-Path "$PSScriptRoot\.."
 $msys = "$root\vendor\msys64"
 $bash = "$msys\usr\bin\bash.exe"
 

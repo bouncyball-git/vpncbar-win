@@ -7,7 +7,7 @@
 # SVGs; the second bakes that .ico into the exe (it's embedded at build time
 # via <ApplicationIcon>). Both go through build-app.ps1, which frees the locked
 # exe by stopping the tray first.
-param([string]$Out = "$PSScriptRoot\src\assets\VpncBar.ico")
+param([string]$Out = "$PSScriptRoot\..\src\assets\VpncBar.ico")
 
 $ErrorActionPreference = 'Stop'
 
@@ -15,7 +15,7 @@ $ErrorActionPreference = 'Stop'
 & "$PSScriptRoot\build-app.ps1" -Debug
 
 # 2. Render the multi-size .ico from those SVGs.
-& "$PSScriptRoot\src\bin\Debug\net10.0-windows\VpncBar.exe" --make-icon $Out
+& "$PSScriptRoot\..\src\bin\Debug\net10.0-windows\VpncBar.exe" --make-icon $Out
 
 # 3. Rebuild so the freshly written .ico is embedded as the exe/taskbar icon.
 & "$PSScriptRoot\build-app.ps1" -Debug

@@ -32,14 +32,14 @@ sealed class TunnelManager(Action<string> log)
         {
             case "openconnect":
                 if (!Backends.HasOpenconnect)
-                    return new(false, "The openconnect backend isn't bundled with this build.\n(dist/backend is missing — see build-openconnect.ps1.)");
+                    return new(false, "The openconnect backend isn't bundled with this build.\n(dist/backend is missing — see scripts/build-openconnect.ps1.)");
                 if (r.Oc is not { Gateway.Length: > 0 })
                     return new(false, "connect: missing openconnect options");
                 psi = OpenconnectPsi(uuid, r.Oc);
                 break;
             case "vpnc":
                 if (!Backends.HasVpnc)
-                    return new(false, "The vpnc backend isn't bundled with this build.\n(dist/backend is missing — see build-vpnc.ps1.)");
+                    return new(false, "The vpnc backend isn't bundled with this build.\n(dist/backend is missing — see scripts/build-vpnc.ps1.)");
                 if (r.Stdin is not { Length: > 0 })
                     return new(false, "connect: missing vpnc config");
                 stopEvent = $"Global\\vpncbar-stop-{uuid}";

@@ -6,7 +6,7 @@
 # and vendor/wintun/wintun.h present (fetch-wintun.ps1).
 
 $ErrorActionPreference = 'Stop'
-$root = Resolve-Path "$PSScriptRoot"
+$root = Resolve-Path "$PSScriptRoot\.."
 $rootMsys = ($root -replace '\\', '/' -replace '^([A-Za-z]):', { '/' + $_.Groups[1].Value.ToLower() })
 # Prefer the vendored MSYS2 (vendor\msys64); fall back to a global C:\msys64.
 $bash = "$root\vendor\msys64\usr\bin\bash.exe"

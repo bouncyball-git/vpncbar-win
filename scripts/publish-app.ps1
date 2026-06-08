@@ -6,7 +6,7 @@
 param([string]$Configuration = 'Release')
 
 $ErrorActionPreference = 'Stop'
-$root = Resolve-Path "$PSScriptRoot"
+$root = Resolve-Path "$PSScriptRoot\.."
 $proj = "$root\src\VpncBar.csproj"
 $out = "$root\dist\app"
 
