@@ -1,11 +1,11 @@
 ; VpncBar Windows installer (Inno Setup 6).
-; Build:  iscc installer\VpncBar.iss   (after publish.ps1)
+; Build:  iscc dist\setup\VpncBar.iss   (after publish.ps1)
 ; Produces dist\VpncBar-<version>-setup.exe.
 ;
 ; Layout installed to {app} (Program Files\VpncBar):
 ;   VpncBar.exe              self-contained single-file (tray | --service | --script)
 ;   vpncbar-script.js        openconnect --script relay
-;   engines\                 openconnect.exe + vpnc.exe + shared DLL closure + wintun.dll
+;   backend\                 openconnect.exe + vpnc.exe + shared DLL closure + wintun.dll
 ;
 ; The privileged service is registered post-install via "VpncBar.exe
 ; --install-service" (demand-start, tray-controlled) and removed on uninstall.
@@ -24,7 +24,7 @@ DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#AppExe}
-OutputDir=..\dist
+OutputDir=.
 OutputBaseFilename=VpncBar-{#AppVersion}-setup
 Compression=lzma2
 SolidCompression=yes
@@ -35,11 +35,11 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Files]
-Source: "..\dist\app\VpncBar.exe";         DestDir: "{app}";          Flags: ignoreversion
-Source: "..\dist\app\vpncbar-script.js";   DestDir: "{app}";          Flags: ignoreversion
-Source: "..\dist\app\engines\*";           DestDir: "{app}\engines";  Flags: ignoreversion recursesubdirs
-Source: "..\vendor\NOTICE";                DestDir: "{app}";              DestName: "NOTICE.txt"; Flags: ignoreversion
-Source: "..\LICENSE";                      DestDir: "{app}";              DestName: "LICENSE.txt"; Flags: ignoreversion isreadme skipifsourcedoesntexist
+Source: "..\app\VpncBar.exe";         DestDir: "{app}";          Flags: ignoreversion
+Source: "..\app\vpncbar-script.js";   DestDir: "{app}";          Flags: ignoreversion
+Source: "..\backend\*";               DestDir: "{app}\backend";  Flags: ignoreversion recursesubdirs
+Source: "..\..\vendor\NOTICE";                DestDir: "{app}";              DestName: "NOTICE.txt"; Flags: ignoreversion
+Source: "..\..\LICENSE";                      DestDir: "{app}";              DestName: "LICENSE.txt"; Flags: ignoreversion isreadme skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\VpncBar";          Filename: "{app}\{#AppExe}"

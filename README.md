@@ -127,8 +127,8 @@ C:\msys64\usr\bin\pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgco
     mingw-w64-x86_64-zlib make perl
 
 .\fetch-wintun.ps1         # signed wintun.dll        → vendor\wintun
-.\fetch-openconnect.ps1    # build openconnect        → vendor\engines\bin
-.\build-vpnc.ps1           # build vpnc.exe           → vendor\engines\bin
+.\fetch-openconnect.ps1    # build openconnect        → dist\backend
+.\build-vpnc.ps1           # build vpnc.exe           → dist\backend
 .\publish.ps1              # framework-dependent app  → dist\app
 .\build-installer.ps1      # installer                → dist\VpncBar-<ver>-setup.exe
 ```

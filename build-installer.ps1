@@ -1,9 +1,11 @@
 # Build the Windows installer: publish the app, then run Inno Setup over
-# installer/VpncBar.iss. Output: dist/VpncBar-<version>-setup.exe.
+# dist/setup/VpncBar.iss. Output: dist/setup/VpncBar-<version>-setup.exe.
 # Requires Inno Setup 6 (winget install JRSoftware.InnoSetup).
 
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path "$PSScriptRoot"
+
+if (-not (Test-Path "$root\dist\backend\vpnc.exe")) { throw 'run fetch-openconnect.ps1 + build-vpnc.ps1 first (populate dist\backend)' }
 
 & "$PSScriptRoot\publish.ps1"
 
@@ -15,7 +17,7 @@ if (-not $iscc) {
 }
 if (-not $iscc) { throw 'Inno Setup not found. Install it: winget install JRSoftware.InnoSetup' }
 
-& $iscc "$root\installer\VpncBar.iss"
+& $iscc "$root\dist\setup\VpncBar.iss"
 if ($LASTEXITCODE -ne 0) { throw 'iscc failed' }
-"installer -> $root\dist"
-Get-ChildItem "$root\dist\*-setup.exe" | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}
+"installer -> $root\dist\setup"
+Get-ChildItem "$root\dist\setup\*-setup.exe" | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}

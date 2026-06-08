@@ -1,6 +1,6 @@
-# Build openconnect from source (MSYS2/mingw64) and collect its binaries into
-# the shared vendor/engines/bin (gitignored), where vpnc lands too. Requires
-# MSYS2 at C:\msys64 with:
+# Build openconnect from source (MSYS2/mingw64) and collect its binaries
+# straight into the shared dist/backend (gitignored), where vpnc lands too.
+# Requires MSYS2 at C:\msys64 with:
 #   pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf \
 #       mingw-w64-x86_64-gnutls mingw-w64-x86_64-libxml2 mingw-w64-x86_64-zlib make
 param([string]$Version = '9.12')
@@ -8,7 +8,7 @@ param([string]$Version = '9.12')
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path "$PSScriptRoot"
 $oc = "$root\vendor\openconnect"
-$eng = "$root\vendor\engines\bin"
+$eng = "$root\dist\backend"
 $tarball = "$oc\src\openconnect-$Version.tar.gz"
 $bash = 'C:\msys64\usr\bin\bash.exe'
 if (-not (Test-Path $bash)) { throw 'MSYS2 not found at C:\msys64' }
@@ -39,11 +39,11 @@ make -j8 CFLAGS='-O2 -Wno-incompatible-pointer-types'
 if ($LASTEXITCODE -ne 0) { throw "openconnect build failed" }
 
 # Collect openconnect.exe (+ libopenconnect dll) and the mingw64 DLL closure
-# straight into the shared engines dir (ldd over everything there converges
+# straight into the shared backend dir (ldd over everything there converges
 # the union across both backends).
 & $bash -lc @"
 set -e
-cd $rootMsys/vendor/engines/bin
+cd $rootMsys/dist/backend
 cp $rootMsys/vendor/openconnect/build/openconnect-$Version/.libs/openconnect.exe . 2>/dev/null || cp $rootMsys/vendor/openconnect/build/openconnect-$Version/openconnect.exe .
 cp $rootMsys/vendor/openconnect/build/openconnect-$Version/.libs/*.dll . 2>/dev/null || true
 for i in 1 2 3; do   # closure is transitive; a few passes converge

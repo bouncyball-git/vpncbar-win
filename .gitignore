@@ -1,9 +1,15 @@
 # build outputs
 bin/
 obj/
-dist/
 *.user
 .vs/
+
+# dist/ is build output (gitignored) — EXCEPT the installer source, which lives
+# under dist/setup/ alongside the setup.exe it produces.
+dist/*
+!dist/setup/
+dist/setup/*
+!dist/setup/VpncBar.iss
 
 # fetched / built binaries — regenerate with the tools/ scripts:
 #   tools/fetch-wintun.ps1       -> vendor/wintun/bin

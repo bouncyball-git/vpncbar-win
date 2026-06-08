@@ -50,18 +50,20 @@
     <None Include="assets\vpncbar-script.js" Link="vpncbar-script.js" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <!-- Both backends live in one output\engines\ folder: openconnect.exe +
+  <!-- Both backends live in one output\backend\ folder: openconnect.exe +
        vpnc.exe + wintun.dll + the GnuTLS/etc DLL closure they share (one copy
        each — Windows resolves an exe's DLLs from its own directory). The merged
-       set is produced by fetch-openconnect + build-vpnc. See §4.
+       set is produced by fetch-openconnect + build-vpnc (into dist\backend); the
+       dev build copies it here so the local exe can run tunnels. Empty/absent
+       until the backends are built — that's fine (the app just can't connect).
        A Target (not a None glob) is used: the '..\' source path defeats
        CopyToOutputDirectory's link-path inference. -->
-  <Target Name="CopyEngines" AfterTargets="Build">
+  <Target Name="CopyBackend" AfterTargets="Build">
     <ItemGroup>
-      <EngineFile Include="..\vendor\engines\bin\*" />
+      <BackendFile Include="..\dist\backend\*" />
     </ItemGroup>
-    <Copy SourceFiles="@(EngineFile)"
-          DestinationFolder="$(OutDir)engines"
+    <Copy SourceFiles="@(BackendFile)"
+          DestinationFolder="$(OutDir)backend"
           SkipUnchangedFiles="true" />
   </Target>
 
