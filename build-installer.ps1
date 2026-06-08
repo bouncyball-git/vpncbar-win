@@ -5,9 +5,9 @@
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path "$PSScriptRoot"
 
-if (-not (Test-Path "$root\dist\backend\vpnc.exe")) { throw 'run fetch-openconnect.ps1 + build-vpnc.ps1 first (populate dist\backend)' }
+if (-not (Test-Path "$root\dist\backend\vpnc.exe")) { throw 'run build-openconnect.ps1 + build-vpnc.ps1 first (populate dist\backend)' }
 
-& "$PSScriptRoot\publish.ps1"
+& "$PSScriptRoot\publish-app.ps1"
 
 $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
 if (-not $iscc) {

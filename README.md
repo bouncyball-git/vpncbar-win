@@ -123,17 +123,22 @@ MSYS2/mingw64 build toolchain is provisioned into `vendor\msys64` by
 fallback if you have one).
 
 ```powershell
+# everything A→Z in one command (provisions toolchain, builds both backends,
+# publishes the app, runs Inno Setup) → dist\setup\VpncBar-<ver>-setup.exe
+.\build-all.ps1
+
+# …or run the stages individually:
 .\setup-msys.ps1           # MSYS2 + mingw toolchain  → vendor\msys64  (~2-3 GB)
 .\fetch-wintun.ps1         # signed wintun.dll        → vendor\wintun
-.\fetch-openconnect.ps1    # build openconnect        → dist\backend
+.\build-openconnect.ps1    # build openconnect        → dist\backend
 .\build-vpnc.ps1           # build vpnc.exe           → dist\backend
-.\publish.ps1              # framework-dependent app  → dist\app
+.\publish-app.ps1          # framework-dependent app  → dist\app
 .\build-installer.ps1      # installer                → dist\setup\VpncBar-<ver>-setup.exe
 ```
 
-All build/helper scripts live in the repo root: `setup-msys.ps1`,
-`fetch-wintun.ps1`, `fetch-openconnect.ps1`, `build-vpnc.ps1`, `build-app.ps1`,
-`publish.ps1`, `build-installer.ps1`, `make-icon.ps1`, and `clean.ps1`
+All build/helper scripts live in the repo root: `build-all.ps1`, `setup-msys.ps1`,
+`fetch-wintun.ps1`, `build-openconnect.ps1`, `build-vpnc.ps1`, `build-app.ps1`,
+`publish-app.ps1`, `build-installer.ps1`, `make-icon.ps1`, and `clean.ps1`
 (`clean.ps1 -All` resets the backends + toolchain to a from-scratch state).
 
 For day-to-day development, `.\build-app.ps1` (or `dotnet build src`) produces a

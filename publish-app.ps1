@@ -1,7 +1,7 @@
 # Produce the release build: a framework-dependent single-file VpncBar.exe
 # (~0.4 MB; needs the .NET 10 Desktop Runtime — the installer warns if absent).
 # Output: dist/app/. The backends live separately in dist/backend/ (produced by
-# fetch-openconnect.ps1 + build-vpnc.ps1); the installer ships app + backend
+# build-openconnect.ps1 + build-vpnc.ps1); the installer ships app + backend
 # side by side.
 param([string]$Configuration = 'Release')
 
@@ -10,7 +10,7 @@ $root = Resolve-Path "$PSScriptRoot"
 $proj = "$root\src\VpncBar.csproj"
 $out = "$root\dist\app"
 
-if (-not (Test-Path "$root\dist\backend\openconnect.exe")) { throw 'run fetch-openconnect.ps1 first' }
+if (-not (Test-Path "$root\dist\backend\openconnect.exe")) { throw 'run build-openconnect.ps1 first' }
 if (-not (Test-Path "$root\dist\backend\vpnc.exe")) { throw 'run build-vpnc.ps1 first' }
 
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }

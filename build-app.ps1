@@ -3,8 +3,8 @@
 #   -Debug         Debug, with symbols (.pdb) — for stepping in a debugger
 #
 # This builds only the C# app; the bundled backends (backend/) are produced by
-# fetch-openconnect.ps1 + build-vpnc.ps1 and copied into the output by the
-# CopyBackend target. For the self-contained single-file release, use publish.ps1.
+# build-openconnect.ps1 + build-vpnc.ps1 and copied into the output by the
+# CopyBackend target. For the self-contained single-file release, use publish-app.ps1.
 param([switch]$Debug)
 
 $ErrorActionPreference = 'Stop'

@@ -37,9 +37,9 @@ Get-ChildItem "$root\dist\setup\*-setup.exe" -ErrorAction SilentlyContinue | For
 
 if ($All) {
     "full reset (backends, fetched sources, toolchain):"
-    Nuke "$root\dist\backend"             # compiled backends (build-vpnc + fetch-openconnect)
+    Nuke "$root\dist\backend"             # compiled backends (build-vpnc + build-openconnect)
     Nuke "$root\vendor\msys64"            # vendored MSYS2 toolchain (setup-msys re-provisions)
-    Nuke "$root\vendor\openconnect"       # source tarball + build tree (fetch-openconnect re-fetches/builds)
+    Nuke "$root\vendor\openconnect"       # source tarball + build tree (build-openconnect re-fetches/builds)
     Nuke "$root\vendor\wintun"            # wintun dll + header (fetch-wintun re-fetches)
     # vpnc builds in-place in its source dir — drop its objects/exe (the source stays)
     Get-ChildItem "$root\vendor\vpnc\src" -Include *.o, *.exe, *.dll, vpnc-debug.* -Recurse -ErrorAction SilentlyContinue |

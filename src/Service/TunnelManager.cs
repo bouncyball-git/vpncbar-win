@@ -32,7 +32,7 @@ sealed class TunnelManager(Action<string> log)
         {
             case "openconnect":
                 if (!Backends.HasOpenconnect)
-                    return new(false, "The openconnect backend isn't bundled with this build.\n(dist/backend is missing — see fetch-openconnect.ps1.)");
+                    return new(false, "The openconnect backend isn't bundled with this build.\n(dist/backend is missing — see build-openconnect.ps1.)");
                 if (r.Oc is not { Gateway.Length: > 0 })
                     return new(false, "connect: missing openconnect options");
                 psi = OpenconnectPsi(uuid, r.Oc);

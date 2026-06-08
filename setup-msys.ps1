@@ -6,7 +6,7 @@
 #   .\setup-msys.ps1          provision vendor\msys64 if missing, ensure packages
 #   .\setup-msys.ps1 -Force   wipe vendor\msys64 and reinstall from scratch
 #
-# This is what build-vpnc.ps1 / fetch-openconnect.ps1 expect at vendor\msys64
+# This is what build-vpnc.ps1 / build-openconnect.ps1 expect at vendor\msys64
 # (they fall back to a global C:\msys64 if you have one).
 param([switch]$Force)
 

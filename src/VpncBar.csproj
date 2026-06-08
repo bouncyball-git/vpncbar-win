@@ -21,7 +21,7 @@
     <AssemblyTitle>VpncBar</AssemblyTitle>
     <!-- Dev builds (dotnet build) are framework-dependent, output at
          bin\Debug\net10.0-windows\. The RID + self-contained single-file
-         settings apply ONLY under publish (publish.ps1 passes
+         settings apply ONLY under publish (publish-app.ps1 passes
          -r win-x64 -p:_IsPublishing=true), so dev output stays RID-free. -->
   </PropertyGroup>
 
@@ -53,7 +53,7 @@
   <!-- Both backends live in one output\backend\ folder: openconnect.exe +
        vpnc.exe + wintun.dll + the GnuTLS/etc DLL closure they share (one copy
        each — Windows resolves an exe's DLLs from its own directory). The merged
-       set is produced by fetch-openconnect + build-vpnc (into dist\backend); the
+       set is produced by build-openconnect + build-vpnc (into dist\backend); the
        dev build copies it here so the local exe can run tunnels. Empty/absent
        until the backends are built — that's fine (the app just can't connect).
        A Target (not a None glob) is used: the '..\' source path defeats
