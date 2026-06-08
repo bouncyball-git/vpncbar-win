@@ -63,7 +63,7 @@ so the macOS/Unix paths are untouched:
   src/Makefile.win32  (new)
     - mingw-w64 build: links libgcrypt + GnuTLS (certificate support enabled —
       a feature upgrade over the macOS default CRYPTO_NONE build), plus
-      ws2_32 and iphlpapi. Built by tools/build-vpnc.ps1.
+      ws2_32 and iphlpapi. Built by scripts/build-vpnc.ps1.
 
   The macOS `--log-file` option is retained but unused on Windows: the service
   captures vpnc's stdout/stderr directly (no daemonization), so the per-profile
@@ -73,11 +73,14 @@ so the macOS/Unix paths are untouched:
 vendor/openconnect/  — openconnect (Cisco AnyConnect SSL client)
 ----------------------------------------------------------------
 Upstream : https://www.infradead.org/openconnect/
-Version  : openconnect 9.12 (source tarball mirrored in
-           vendor/openconnect/src/openconnect-9.12.tar.gz)
+Version  : openconnect 9.12 — the exact source tarball
+           (openconnect-9.12.tar.gz) is downloaded from the upstream URL above,
+           pinned to that version, by scripts/build-openconnect.ps1 at build
+           time (it is not committed to this repo; for a binary release, attach
+           that tarball as the corresponding LGPL source).
 License  : LGPL v2.1 (see the COPYING.LGPL inside the tarball).
 
-Built from that source with mingw-w64 (tools/fetch-openconnect.ps1), unmodified
+Built from that source with mingw-w64 (scripts/build-openconnect.ps1), unmodified
 except for the build flags recorded in that script (a -Wno-incompatible-pointer-
 types relaxation for GCC 14, and wintun.h supplied from vendor/wintun). Shipped
 as a separate executable, so the LGPL relinking right is satisfied; the exact
@@ -112,7 +115,8 @@ versions in vendor/openconnect/VERSIONS.txt, or from each project upstream.
 vendor/wintun/  — Wintun (TUN driver), prebuilt
 -----------------------------------------------
 Upstream : https://www.wintun.net/
-Version  : 0.14.1 (wintun.dll, per-arch, fetched by tools/fetch-wintun.ps1)
+Version  : 0.14.1 (wintun.dll, per-arch, fetched by scripts/fetch-wintun.ps1;
+           not committed to this repo)
 License  : WireGuard LLC "Prebuilt Binaries License" (vendor/wintun/LICENSE.txt),
            which permits redistribution as part of a larger product. The Wintun
            source itself is GPL v2; we ship the signed prebuilt dll as intended

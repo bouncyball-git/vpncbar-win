@@ -67,8 +67,8 @@ so they appear in neither the service's state nor any argv.
 |-----------|------------|
 | `src/` | The C# / WinForms app (tray + service + script modes), .NET 10 |
 | `vendor/vpnc/` | The vpnc engine, ported to Windows (Wintun + winsock); GPLv2. See `vendor/NOTICE` |
-| `vendor/openconnect/` | openconnect built from source (bundled, not vendored as source beyond the tarball); LGPL |
-| `vendor/wintun/` | The signed `wintun.dll` from wintun.net (shared by both backends) |
+| `vendor/openconnect/` | openconnect built from source; the pinned source tarball is fetched at build time (not committed), LGPL |
+| `vendor/wintun/` | The signed `wintun.dll` from wintun.net, fetched at build time (not committed); shared by both backends |
 
 ## Features
 

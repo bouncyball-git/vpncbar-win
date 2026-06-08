@@ -11,15 +11,17 @@ dist/*
 dist/setup/*
 !dist/setup/VpncBar.iss
 
-# fetched / built / provisioned under vendor — regenerate with the root scripts:
-#   fetch-wintun.ps1       -> vendor/wintun/bin
-#   fetch-openconnect.ps1  -> dist/backend (+ vendor/openconnect/build tree)
+# fetched / built / provisioned under vendor — regenerate with scripts\*.ps1:
+#   fetch-wintun.ps1       -> vendor/wintun       (wintun.dll + header + license)
+#   build-openconnect.ps1  -> vendor/openconnect  (downloads the pinned source tarball, builds)
 #   build-vpnc.ps1         -> dist/backend
-#   setup-msys.ps1         -> vendor/msys64 (the ~2-3 GB MSYS2 build toolchain)
+#   setup-msys.ps1         -> vendor/msys64        (the ~2-3 GB MSYS2 build toolchain)
 # Both compiled backends land in dist/backend (covered by dist/* above).
-# (vendor/openconnect/src/*.tar.gz IS committed: LGPL source provenance)
+# wintun + openconnect are fetched in full at build time (pinned versions in the
+# scripts), so their whole dirs are ignored; only vendor/vpnc (our modified GPL
+# source) is tracked.
 vendor/msys64/
-vendor/openconnect/build/
-vendor/wintun/bin/
+vendor/openconnect/
+vendor/wintun/
 # (vpnc builds in-place in vendor/vpnc/src — its build products are ignored
 #  by vendor/vpnc/.gitignore)
