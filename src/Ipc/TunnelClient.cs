@@ -131,7 +131,7 @@ static class TunnelClient
     // Mirrors TunnelManager.OpenconnectPsi — keep the two in sync.
     public static string CommandLine(Profile p)
     {
-        if (!p.IsOpenconnect) return VpncConfig.CommandLine();
+        if (!p.IsOpenconnect) return VpncConfig.CommandLine(p);
         var a = new List<string>
         {
             "openconnect",

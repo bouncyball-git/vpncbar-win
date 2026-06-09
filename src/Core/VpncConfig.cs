@@ -15,7 +15,22 @@ static class VpncConfig
 {
     public sealed record Built(string ConfigText, string? Error);
 
-    public static Built Build(Profile p)
+    public static Built Build(Profile p) => Build(p, redact: false);
+
+    // Display-only command line for the Info tab: the real argv the service
+    // launches, plus the config that rides stdin — with the group secret and the
+    // Xauth password masked. Mirrors TunnelManager.VpncPsi + Build(); keep in sync.
+    public static string CommandLine(Profile p)
+    {
+        var sb = new System.Text.StringBuilder("vpnc --non-inter --local-port 0 -\n\n");
+        sb.Append("config piped on stdin (secrets masked):\n");
+        foreach (var line in Build(p, redact: true).ConfigText.TrimEnd('\n').Split('\n'))
+            sb.Append("  ").Append(line).Append('\n');
+        sb.Append("  Script \"…\\VpncBar.exe\" --script");   // the service appends this
+        return sb.ToString();
+    }
+
+    static Built Build(Profile p, bool redact)
     {
         var authmode = Profile.Ne(p.Authmode) ?? "psk";
         bool usesCert = authmode is "cert" or "hybrid";
@@ -32,19 +47,19 @@ static class VpncConfig
         if (usesCert)
         {
             var ca = Profile.Ne(p.CaFile);
-            if (ca == null) return new("", $"{authmode} auth needs a CA file.\nOpen the profile and set it.");
-            lines.Add($"CA-File {ca}");
+            if (ca == null) { if (!redact) return new("", $"{authmode} auth needs a CA file.\nOpen the profile and set it."); }
+            else lines.Add($"CA-File {ca}");
         }
         else
         {
-            var secret = ProfileStore.Secret(p);
-            if (secret == null) return new("", $"Group secret not found for “{p.Name}”.\nOpen the profile and set it.");
+            var secret = redact ? "********" : ProfileStore.Secret(p);
+            if (!redact && secret == null) return new("", $"Group secret not found for “{p.Name}”.\nOpen the profile and set it.");
             lines.Add($"IPSec secret {secret}");
         }
 
         var password = ProfileStore.Password(p);
         if (xauthDomain != null) lines.Add($"Domain {xauthDomain}");
-        if (password != null) lines.Add($"Xauth password {password}");
+        if (password != null) lines.Add($"Xauth password {(redact ? "********" : password)}");
 
         void Add(string key, string? value)
         {
@@ -73,9 +88,6 @@ static class VpncConfig
         return new(string.Join("\n", lines) + "\n", null);
     }
 
-    // Display-only argv for the Info tab (no secrets — they're on stdin).
-    public static string CommandLine() =>
-        "vpnc --non-inter --log-file <session.log> -   (config on stdin)";
 
     // Last good gateway-hostname → IP, so a reconnect still works even if a
     // stale scoped resolver would route the gateway into the VPN DNS. Port of

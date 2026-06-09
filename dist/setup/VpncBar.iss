@@ -11,7 +11,7 @@
 ; --install-service" (demand-start, tray-controlled) and removed on uninstall.
 
 #define AppName "VpncBar"
-#define AppVersion "1.0.2"
+#define AppVersion "1.1.0"
 #define AppPublisher "VpncBar"
 #define AppExe "VpncBar.exe"
 
