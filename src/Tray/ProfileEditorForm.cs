@@ -617,13 +617,13 @@ sealed class ProfileEditorForm : Form
         _tips.SetToolTip(_fetch, "Contacts the gateway for its group list and 2FA flags (no credentials sent)");
         _fetch.Click += (_, _) => FetchGroups();
         AddRow(o, "Auth group", _ocGroup, _fetch);
-        AddRow(o, "Server cert", _ocServerCert);
-        _ocServerCert.PlaceholderText = "pin-sha256:…";
+        AddFull(o, _ocOtp);                         // 2FA toggle sits with its Auth group
         AddRow(o, "Username", ocUsername);
         AddRow(o, "Password", ocPassword, inField: new EyeButton(ocPassword));
         AddRow(o, "VPN domains", ocDomains);
+        _ocServerCert.PlaceholderText = "pin-sha256:…";
+        AddRow(o, "Server cert", _ocServerCert);    // the two cert fields grouped, Server above Client
         AddRow(o, "Client cert", ocClientCert, inField: BrowseButton(ocClientCert, "Choose client certificate"));
-        AddFull(o, _ocOtp);
         _credsOc = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Visible = false };
         _credsOc.Controls.Add(o);
 

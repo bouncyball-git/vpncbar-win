@@ -36,18 +36,43 @@ sealed class ManageForm : Form
 
         var buttons = new FlowLayoutPanel
         {
-            Dock = DockStyle.Bottom,
             FlowDirection = FlowDirection.LeftToRight,
             AutoSize = true,
-            Padding = new Padding(8),
+            WrapContents = false,   // keep Add/Edit/Remove/Import on one horizontal row
+            Margin = new Padding(0),
         };
         buttons.Controls.Add(Btn("Add", (_, _) => _openEditor(null)));
         buttons.Controls.Add(Btn("Edit", (_, _) => EditSelected()));
         buttons.Controls.Add(Btn("Remove", (_, _) => RemoveSelected()));
         buttons.Controls.Add(Btn("Import…", (_, _) => Import()));
 
+        // Start-at-login lives here (lower-right), moved out of the About window.
+        var autostart = new CheckBox
+        {
+            Text = "Start VpncBar at login",
+            AutoSize = true,
+            Checked = AutoStart.IsEnabled(),
+            Anchor = AnchorStyles.Right,
+            Margin = new Padding(0),
+        };
+        autostart.CheckedChanged += (_, _) => AutoStart.SetEnabled(autostart.Checked);
+
+        // Buttons left, login toggle right, on one bottom row.
+        var bottom = new TableLayoutPanel
+        {
+            Dock = DockStyle.Bottom,
+            AutoSize = true,
+            ColumnCount = 2,
+            RowCount = 1,
+            Padding = new Padding(8),
+        };
+        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));      // buttons (left)
+        bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));  // login toggle (right)
+        bottom.Controls.Add(buttons, 0, 0);
+        bottom.Controls.Add(autostart, 1, 0);
+
         Controls.Add(_list);
-        Controls.Add(buttons);
+        Controls.Add(bottom);
         Reload();
         Theme.Polish(this);
     }
