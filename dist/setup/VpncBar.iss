@@ -87,6 +87,24 @@ begin
   end;
 end;
 
+// Stop a running VpncBar before an over-the-top (re)install so its open handles
+// don't lock the files in {app}. Kills the tray and the service process (both are
+// VpncBar.exe) plus any orphaned backend children, then clears the service's SCM
+// state. Setup is elevated (PrivilegesRequired=admin), so it has the rights.
+procedure StopRunningVpncBar;
+var ResultCode: Integer;
+begin
+  // Ask the service to stop first so it tears down tunnels/routes/NRPT cleanly
+  // (the tray doesn't auto-restart it), give it a moment, then force-kill any
+  // survivors so nothing keeps a handle open on {app}.
+  Exec('sc.exe',       'stop VpncBar',           '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(1500);
+  Exec('taskkill.exe', '/IM VpncBar.exe /F',     '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill.exe', '/IM openconnect.exe /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill.exe', '/IM vpnc.exe /F',        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Sleep(500);   // let the OS release the file handles before the copy
+end;
+
 // If the .NET 10 Desktop Runtime is missing, offer to download + install it
 // inline (setup is elevated, so a machine-wide runtime install works). Runs
 // after the user clicks Install; returning a non-empty string aborts with that
@@ -97,6 +115,8 @@ var
   Installer: String;
 begin
   Result := '';
+  StopRunningVpncBar();   // free any files locked by a running instance first
+
   if IsDotNet10DesktopInstalled() then
     exit;
 
@@ -132,27 +152,29 @@ begin
   end;
 end;
 
-// On uninstall: stop the tray, then ask separately whether to also remove the
-// user's saved profiles and stored credentials. Those live in the original
-// (non-elevated) user's profile, so the purge runs AS THAT USER via the app's
-// --purge-* modes (the uninstaller itself is elevated). Both are kept by
-// default; session logs and the program's own removal are unaffected.
+// On uninstall: stop the tray + service + backends, then ask separately whether
+// to also remove the user's saved profiles and stored credentials (both live in
+// the user's own %APPDATA% / Credential Manager). Inno forbids ExecAsOriginalUser
+// during uninstall, so we use Exec: the purge runs in the uninstaller's (elevated)
+// context, which targets the right per-user store when the person uninstalling is
+// the one who installed it (the normal case on a personal machine). Both are kept
+// by default; session logs and the program's own removal are unaffected.
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var ResultCode: Integer;
 begin
   if CurUninstallStep = usUninstall then
   begin
-    Exec('taskkill.exe', '/IM VpncBar.exe /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    StopRunningVpncBar();   // release {app} file handles before deletion
     if MsgBox('Also remove your saved VPN profiles?' + #13#10#13#10 +
               'Choose No to keep them for a future reinstall.',
               mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
-      ExecAsOriginalUser(ExpandConstant('{app}\{#AppExe}'), '--purge-profiles', '',
-                         SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      Exec(ExpandConstant('{app}\{#AppExe}'), '--purge-profiles', '',
+           SW_HIDE, ewWaitUntilTerminated, ResultCode);
     if MsgBox('Also remove your saved passwords / group secrets from Windows' + #13#10 +
               'Credential Manager?' + #13#10#13#10 +
               'Choose No to keep them for a future reinstall.',
               mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
-      ExecAsOriginalUser(ExpandConstant('{app}\{#AppExe}'), '--purge-credentials', '',
-                         SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      Exec(ExpandConstant('{app}\{#AppExe}'), '--purge-credentials', '',
+           SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
 end;
