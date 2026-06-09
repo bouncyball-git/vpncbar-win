@@ -24,6 +24,7 @@ DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#AppExe}
+SetupIconFile=..\..\src\assets\VpncBar.ico
 OutputDir=.
 OutputBaseFilename=VpncBar-{#AppVersion}-setup
 Compression=lzma2
