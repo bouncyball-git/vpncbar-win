@@ -66,6 +66,30 @@ Filename: "{app}\{#AppExe}"; Description: "Launch VpncBar"; Flags: nowait postin
 Filename: "{app}\{#AppExe}"; Parameters: "--uninstall-service"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"
 
 [Code]
+var
+  DotNetProgress: TOutputProgressWizardPage;   // two-row "Downloading / Installing" page
+
+procedure InitializeWizard;
+begin
+  DotNetProgress := CreateOutputProgressPage(
+    'Prerequisite: .NET 10 Desktop Runtime',
+    'If the .NET 10 Desktop Runtime is missing, Setup downloads and installs it here.');
+end;
+
+// Drives the first row of DotNetProgress from the live download. Return False to
+// cancel; we always continue.
+function OnDotNetDownloadProgress(const Url, FileName: String; const Progress, ProgressMax: Int64): Boolean;
+begin
+  if ProgressMax > 0 then
+  begin
+    DotNetProgress.SetProgress(Progress, ProgressMax);
+    DotNetProgress.SetText(
+      'Downloading the .NET 10 Desktop Runtime...  ' + IntToStr(Progress div 1048576) + ' of ' + IntToStr(ProgressMax div 1048576) + ' MB',
+      'Installing the .NET 10 Desktop Runtime...   (pending)');
+  end;
+  Result := True;
+end;
+
 // VpncBar is framework-dependent: it needs the .NET 10 Desktop Runtime, which
 // is NOT in-box. Detect it by looking for a 10.x folder under the shared
 // WindowsDesktop runtime directory.
@@ -132,18 +156,32 @@ begin
     exit;
   end;
 
-  // aka.ms serves the latest 10.0 desktop-runtime build; download to {tmp}.
+  // Download (real progress on row 1) then install (the runtime's own /passive
+  // window shows install progress; row 2 tracks the step) — both on one page.
   Installer := ExpandConstant('{tmp}\windowsdesktop-runtime-10-x64.exe');
+  DotNetProgress.Show;
   try
-    DownloadTemporaryFile('https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe',
-                          'windowsdesktop-runtime-10-x64.exe', '', nil);
-  except
-    Installer := '';   // download failed
-  end;
+    DotNetProgress.SetText('Downloading the .NET 10 Desktop Runtime...',
+                           'Installing the .NET 10 Desktop Runtime...   (pending)');
+    try
+      DownloadTemporaryFile('https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe',
+                            'windowsdesktop-runtime-10-x64.exe', '', @OnDotNetDownloadProgress);
+    except
+      Installer := '';   // download failed
+    end;
 
-  if (Installer <> '') and FileExists(Installer) then
-    if Exec(Installer, '/install /quiet /norestart', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
-      if ResultCode = 3010 then NeedsRestart := True;   // 3010 = installed, restart pending
+    if (Installer <> '') and FileExists(Installer) then
+    begin
+      DotNetProgress.SetProgress(1, 1);   // download row done
+      DotNetProgress.SetText('Downloaded the .NET 10 Desktop Runtime.',
+                             'Installing the .NET 10 Desktop Runtime...');
+      // /passive (not /quiet) so the runtime installer shows its own progress UI.
+      if Exec(Installer, '/install /passive /norestart', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
+        if ResultCode = 3010 then NeedsRestart := True;   // 3010 = installed, restart pending
+    end;
+  finally
+    DotNetProgress.Hide;
+  end;
 
   if not IsDotNet10DesktopInstalled() then
   begin
