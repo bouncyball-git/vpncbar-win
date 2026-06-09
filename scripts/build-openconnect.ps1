@@ -3,13 +3,22 @@
 # Requires MSYS2 at vendor\msys64 (or a global C:\msys64) with:
 #   pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf \
 #       mingw-w64-x86_64-gnutls mingw-w64-x86_64-libxml2 mingw-w64-x86_64-zlib make
-param([string]$Version = '9.12', [switch]$Force)
+# -Force always rebuilds (ignoring the skip-guard below); -Clean only removes the
+# build artifacts (the compile tree + the built exe) and exits — no MSYS2 needed.
+param([string]$Version = '9.12', [switch]$Force, [switch]$Clean)
 
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path "$PSScriptRoot\.."
 $oc = "$root\vendor\openconnect"
 $eng = "$root\dist\backend"
 $tarball = "$oc\src\openconnect-$Version.tar.gz"
+
+if ($Clean) {
+    Remove-Item "$oc\build" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item "$eng\openconnect.exe", "$oc\VERSIONS.txt" -Force -ErrorAction SilentlyContinue
+    "cleaned openconnect build artifacts -> vendor\openconnect\build + dist\backend\openconnect.exe"
+    return
+}
 
 # Skip the (slow, ~2-3 min) from-scratch compile if openconnect is already built
 # AND the recorded build version matches the requested one — so a -Version bump

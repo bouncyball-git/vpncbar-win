@@ -1,8 +1,10 @@
 # build outputs
 bin/
 obj/
-*.user
 .vs/
+*.user
+*.exe
+*.o
 
 # dist/ is build output (gitignored) — EXCEPT the installer source, which lives
 # under dist/setup/ alongside the setup.exe it produces.

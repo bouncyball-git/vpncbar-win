@@ -7,11 +7,20 @@
 #
 # No skip-if-built guard here on purpose: make is already incremental, so a
 # rerun recompiles only what changed in vendor/vpnc/src (and no-ops in seconds
-# when nothing did). -Force does a `make clean` first for a true from-scratch.
-param([switch]$Force)
+# when nothing did). -Force does a `make clean` first for a true from-scratch;
+# -Clean only removes the build artifacts and exits (no MSYS2 needed).
+param([switch]$Force, [switch]$Clean)
 
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path "$PSScriptRoot\.."
+
+if ($Clean) {
+    Remove-Item "$root\vendor\vpnc\src\*.o", "$root\vendor\vpnc\src\vpnc.exe", `
+                "$root\vendor\vpnc\src\vpnc-debug.*", "$root\dist\backend\vpnc.exe" `
+                -Force -ErrorAction SilentlyContinue
+    "cleaned vpnc build artifacts -> vendor\vpnc\src (*.o, vpnc.exe, vpnc-debug.*) + dist\backend\vpnc.exe"
+    return
+}
 $rootMsys = '/' + "$root".Substring(0, 1).ToLower() + ("$root".Substring(2) -replace '\\', '/')   # G:\x -> /g/x (Windows PowerShell 5.1 + pwsh 7)
 # Prefer the vendored MSYS2 (vendor\msys64); fall back to a global C:\msys64.
 $bash = "$root\vendor\msys64\usr\bin\bash.exe"
