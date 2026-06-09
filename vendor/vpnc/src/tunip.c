@@ -1119,6 +1119,11 @@ static void killit(int signum)
 
 static void write_pidfile(const char *pidfile)
 {
+#if defined(_WIN32) && !defined(__CYGWIN__)
+	/* No PID file on Windows: there is no /run, and the VpncBar service tracks the
+	 * child PID directly and stops it via a named event — nothing reads a pidfile. */
+	(void)pidfile;
+#else
 	FILE *pf;
 
 	if (pidfile == NULL || pidfile[0] == '\0')
@@ -1132,6 +1137,7 @@ static void write_pidfile(const char *pidfile)
 
 	fprintf(pf, "%d\n", (int)getpid());
 	fclose(pf);
+#endif
 }
 
 void vpnc_doit(struct sa_block *s)
@@ -1256,6 +1262,8 @@ void vpnc_doit(struct sa_block *s)
 		fprintf(stderr, "Failed to chdir to %s", cwd);
 	free(cwd);
 
+#if !defined(_WIN32) || defined(__CYGWIN__)
 	if (pidfile)
 		unlink(pidfile); /* ignore errors */
+#endif
 }

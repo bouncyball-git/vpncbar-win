@@ -30,6 +30,13 @@ static void __attribute__((constructor)) winsock_init(void)
 {
 	WSADATA wsa;
 	WSAStartup(MAKEWORD(2, 2), &wsa);
+
+	/* stdout is block-buffered when it's a pipe (the VpncBar service captures it),
+	   so the printf() debug trace would sit unflushed for ~a minute until the 4 KB
+	   buffer fills. Make it unbuffered so the Debug tab streams live, the way stderr
+	   (where logmsg() writes) already does. (_IOLBF is treated as _IOFBF by the
+	   Windows CRT, so line-buffering isn't an option — go fully unbuffered.) */
+	setvbuf(stdout, NULL, _IONBF, 0);
 }
 
 /* ---- wintun.dll, loaded from the exe's directory ---- */
