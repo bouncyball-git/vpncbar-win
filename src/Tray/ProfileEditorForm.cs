@@ -241,14 +241,32 @@ sealed class ProfileEditorForm : Form
         _fetch.Text = "Fetching…";
         Task.Run(() =>
         {
-            var (groups, error) = ProbeGroups(server, pin.Length > 0 ? pin : null);
+            var (groups, error, certPin) = ProbeGroups(server, pin.Length > 0 ? pin : null);
             try
             {
                 BeginInvoke(() =>
                 {
                     _fetch.Enabled = true;
                     _fetch.Text = oldText;
-                    if (error != null)
+                    if (certPin != null)
+                    {
+                        // Trust-on-first-use: the gateway's cert isn't in the Windows store
+                        // (self-signed / private CA). Show the fingerprint and, on consent,
+                        // pin it into Server cert and retry — the pin is enforced thereafter.
+                        var r = MessageBox.Show(this,
+                            $"The gateway “{server}” presented a certificate that Windows doesn't trust\n" +
+                            "(self-signed, or from a private CA).\n\n" +
+                            $"Fingerprint:\n{certPin}\n\n" +
+                            "Trust and pin this certificate? It's saved to the profile and required on\n" +
+                            "every future connection — you'll be warned if it ever changes.",
+                            "Untrusted server certificate", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                        if (r == DialogResult.Yes)
+                        {
+                            _ocServerCert.Text = certPin;
+                            FetchGroups();   // retry — the pin now lets the probe through
+                        }
+                    }
+                    else if (error != null)
                         MessageBox.Show(this, error, "VpncBar", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     else
                         ShowGroupPicker(groups!);
@@ -258,7 +276,7 @@ sealed class ProfileEditorForm : Form
         });
     }
 
-    static (List<(string Group, bool Otp)>? Groups, string? Error) ProbeGroups(string server, string? pin)
+    static (List<(string Group, bool Otp)>? Groups, string? Error, string? CertPin) ProbeGroups(string server, string? pin)
     {
         var psi = new System.Diagnostics.ProcessStartInfo
         {
@@ -289,7 +307,7 @@ sealed class ProfileEditorForm : Form
             if (!proc.WaitForExit(30000))
             {
                 proc.Kill(entireProcessTree: true);
-                return (null, "The gateway didn't respond within 30 seconds.");
+                return (null, "The gateway didn't respond within 30 seconds.", null);
             }
             var output = stdout.Result + "\n" + stderr.Result;
 
@@ -306,14 +324,20 @@ sealed class ProfileEditorForm : Form
             }
             if (result.Count == 0)
             {
+                // No groups. If the gateway cert isn't trusted (and we didn't already
+                // pass a pin), surface the fingerprint openconnect reports so the
+                // caller can offer to trust + pin it (TOFU).
+                var pinMatch = System.Text.RegularExpressions.Regex.Match(output, @"pin-sha256:[A-Za-z0-9+/]+=*");
+                if (pin == null && pinMatch.Success)
+                    return (null, null, pinMatch.Value);
                 var tail = string.Concat(output.TrimEnd().TakeLast(400));
-                return (null, $"No groups found. The gateway said:\n…{tail}");
+                return (null, $"No groups found. The gateway said:\n…{tail}", null);
             }
-            return (result, null);
+            return (result, null, null);
         }
         catch (Exception e)
         {
-            return (null, $"Couldn't run the probe:\n{e.Message}");
+            return (null, $"Couldn't run the probe:\n{e.Message}", null);
         }
     }
 
