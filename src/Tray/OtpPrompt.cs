@@ -15,20 +15,13 @@ static class OtpPrompt
             MaximizeBox = false,
             MinimizeBox = false,
             ShowInTaskbar = false,
-            ClientSize = new Size(320, 120),
+            ClientSize = new Size(320, 88),
             TopMost = true,
-        };
-        var label = new Label
-        {
-            Text = "Enter the current 2FA code (e.g. from Google Authenticator).",
-            Dock = DockStyle.Top,
-            Padding = new Padding(10, 10, 10, 0),
-            Height = 36,
         };
         var box = new TextBox();
         var field = new FieldPanel(box) { Dock = DockStyle.Top };
         field.Margin = new Padding(10, 0, 10, 0);
-        var fieldHost = new Panel { Dock = DockStyle.Top, Height = 33, Padding = new Padding(10, 2, 10, 2) };
+        var fieldHost = new Panel { Dock = DockStyle.Top, Height = 44, Padding = new Padding(10, 12, 10, 2) };
         field.Dock = DockStyle.Fill;
         fieldHost.Controls.Add(field);
 
@@ -45,7 +38,6 @@ static class OtpPrompt
         buttons.Controls.Add(cancel);
 
         form.Controls.Add(fieldHost);
-        form.Controls.Add(label);
         form.Controls.Add(buttons);
         form.AcceptButton = ok;
         form.CancelButton = cancel;

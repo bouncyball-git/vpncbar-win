@@ -36,7 +36,10 @@ sealed class ProfileEditorForm : Form
     // openconnect credentials
     readonly TextBox _ocGroup = new();   // free text; "Fetch groups" (phase 3) adds a picker
     readonly TextBox _ocServerCert = new();
-    readonly CheckBox _ocOtp = new() { Text = "Ask for one-time code (2FA) on connect", AutoSize = true };
+    // Per-group 2FA requirement from the last Fetch groups. The OTP prompt keys off
+    // the CURRENTLY selected group (see NeedsOtp), not a sticky single flag — so
+    // switching to a non-2FA group stops asking for a code.
+    readonly Dictionary<string, bool> _groupOtp = new(StringComparer.OrdinalIgnoreCase);
 
     // vpnc options
     readonly ThemedCombo _dh = new();
@@ -184,13 +187,19 @@ sealed class ProfileEditorForm : Form
         });
     }
 
+    // Whether the currently-selected openconnect group needs a 2FA code. Looks the
+    // group up in the last Fetch groups result; for a group not fetched this session
+    // (typed by hand, or the editor opened without fetching) it keeps the saved value.
+    bool NeedsOtp() =>
+        _groupOtp.TryGetValue(_ocGroup.Text.Trim(), out var need) ? need : (_existing?.OcOtp ?? false);
+
     void ToggleConnect()
     {
         if (_existing == null) return;
         var p = _existing;
         bool up = _connected;
         string? otp = null;
-        if (!up && p.IsOpenconnect && (p.OcOtp ?? false))
+        if (!up && p.IsOpenconnect && NeedsOtp())
         {
             otp = OtpPrompt.Show(p.Name);
             if (otp == null) return;   // cancelled
@@ -349,15 +358,13 @@ sealed class ProfileEditorForm : Form
             menu.BackColor = Theme.Surface;
             menu.ForeColor = Theme.Text;
         }
+        _groupOtp.Clear();
+        foreach (var (g, o) in groups) _groupOtp[g] = o;   // remember every group's 2FA flag
         foreach (var (group, otp) in groups)
         {
             var item = new ToolStripMenuItem(otp ? $"{group}   (2FA)" : group);
             if (Application.IsDarkModeEnabled) item.ForeColor = Theme.Text;
-            item.Click += (_, _) =>
-            {
-                _ocGroup.Text = group;
-                _ocOtp.Checked = otp;   // auto-detected from second-auth="1"
-            };
+            item.Click += (_, _) => _ocGroup.Text = group;   // OTP is derived per-group (NeedsOtp)
             menu.Items.Add(item);
         }
         menu.Closed += (_, _) => BeginInvoke(menu.Dispose);   // deferred — never mid-dispatch
@@ -641,7 +648,6 @@ sealed class ProfileEditorForm : Form
         _tips.SetToolTip(_fetch, "Contacts the gateway for its group list and 2FA flags (no credentials sent)");
         _fetch.Click += (_, _) => FetchGroups();
         AddRow(o, "Auth group", _ocGroup, _fetch);
-        AddFull(o, _ocOtp);                         // 2FA toggle sits with its Auth group
         AddRow(o, "Username", ocUsername);
         AddRow(o, "Password", ocPassword, inField: new EyeButton(ocPassword));
         AddRow(o, "VPN domains", ocDomains);
@@ -773,7 +779,6 @@ sealed class ProfileEditorForm : Form
 
         _ocGroup.Text = p.OcAuthgroup ?? "";
         _ocServerCert.Text = p.OcServerCert ?? "";
-        _ocOtp.Checked = p.OcOtp ?? false;
         Sel(_ocProto, p.OcProtocol);
         _ocNoDtls.Checked = p.OcNoDTLS ?? false;
         _ocDpd.Text = p.OcDPD ?? "";
@@ -813,7 +818,7 @@ sealed class ProfileEditorForm : Form
         {
             p.OcAuthgroup = Profile.Ne(_ocGroup.Text);
             p.OcServerCert = Profile.Ne(_ocServerCert.Text);
-            p.OcOtp = _ocOtp.Checked ? true : null;
+            p.OcOtp = NeedsOtp() ? true : null;
             p.OcProtocol = Def(_ocProto, "anyconnect");
             p.OcNoDTLS = _ocNoDtls.Checked ? true : null;
             p.OcDPD = Profile.Ne(_ocDpd.Text);
