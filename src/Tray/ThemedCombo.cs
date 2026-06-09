@@ -16,6 +16,7 @@ sealed class ThemedCombo : Control
     readonly List<string> _items = [];
     int _selected = -1;
     long _popupClosedAt;   // guards against click-to-close immediately reopening
+    TextBox? _edit;        // inner editor — present only in Editable (free-text) mode
 
     public ThemedCombo()
     {
@@ -56,13 +57,56 @@ sealed class ThemedCombo : Control
     [System.Diagnostics.CodeAnalysis.AllowNull]   // match Control.Text's nullable setter
     public override string Text
     {
-        get => SelectedItem ?? "";
-        set => SelectedItem = value;
+        get => _edit != null ? _edit.Text : (SelectedItem ?? "");
+        set { if (_edit != null) _edit.Text = value ?? ""; else SelectedItem = value; }
+    }
+
+    // Editable (free-text) mode — like the mac's NSComboBox: type a value or pick one
+    // from the (fetchable) Items. Off by default = classic DropDownList.
+    [DefaultValue(false)]
+    public bool Editable
+    {
+        get => _edit != null;
+        set
+        {
+            if (value == (_edit != null)) return;
+            if (value)
+            {
+                _edit = new TextBox { BorderStyle = BorderStyle.None };
+                _edit.TextChanged += (_, _) => SelectedIndexChanged?.Invoke(this, EventArgs.Empty);
+                _edit.KeyDown += (_, e) =>
+                {
+                    if (e.KeyCode is Keys.F4 || (e.KeyCode is Keys.Down && e.Alt)) { OpenList(); e.Handled = true; }
+                };
+                Controls.Add(_edit);
+                ThemeEdit();
+                LayoutEdit();
+            }
+            else { var old = _edit!; _edit = null; Controls.Remove(old); old.Dispose(); }
+            Invalidate();
+        }
+    }
+
+    void LayoutEdit()
+    {
+        if (_edit == null) return;
+        int h = _edit.PreferredHeight;
+        _edit.SetBounds(8, Math.Max(0, (Height - h) / 2), Math.Max(0, Width - 30 - 8), h);
+    }
+
+    void ThemeEdit()
+    {
+        if (_edit == null) return;
+        bool dark = Application.IsDarkModeEnabled;
+        _edit.BackColor = dark ? Theme.Field : SystemColors.Window;
+        _edit.ForeColor = dark ? Theme.Text : SystemColors.WindowText;
     }
 
     void Select(int index)
     {
-        if (index < 0 || index >= _items.Count || index == _selected) return;
+        if (index < 0 || index >= _items.Count) return;
+        if (_edit != null) { _selected = index; _edit.Text = _items[index]; return; }   // editor fires the event
+        if (index == _selected) return;
         _selected = index;
         Invalidate();
         SelectedIndexChanged?.Invoke(this, EventArgs.Empty);
@@ -92,7 +136,7 @@ sealed class ThemedCombo : Control
             ForeColor = fore,
         };
         foreach (var s in _items) list.Items.Add(s);
-        list.SelectedIndex = _selected;
+        list.SelectedIndex = _edit != null ? _items.IndexOf(_edit.Text) : _selected;
 
         list.DrawItem += (_, e) =>
         {
@@ -205,6 +249,7 @@ sealed class ThemedCombo : Control
 
     protected override void OnGotFocus(EventArgs e) { Invalidate(); base.OnGotFocus(e); }
     protected override void OnLostFocus(EventArgs e) { Invalidate(); base.OnLostFocus(e); }
+    protected override void OnSizeChanged(EventArgs e) { base.OnSizeChanged(e); LayoutEdit(); }
 
     protected override void OnPaint(PaintEventArgs e)
     {
@@ -220,9 +265,12 @@ sealed class ThemedCombo : Control
             g.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
         }
 
-        var textRect = new Rectangle(8, 0, Width - 30, Height);
-        TextRenderer.DrawText(g, Text, Font, textRect, textColor,
-            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+        if (_edit == null)   // editable mode shows the value in the inner text box
+        {
+            var textRect = new Rectangle(8, 0, Width - 30, Height);
+            TextRenderer.DrawText(g, Text, Font, textRect, textColor,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+        }
 
         // Chevron, drawn with the Segoe MDL2 glyph used across Windows.
         using var glyphFont = new Font("Segoe MDL2 Assets", Font.Size - 1f);

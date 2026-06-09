@@ -34,7 +34,7 @@ sealed class ProfileEditorForm : Form
     readonly TextBox _caFile = new();
 
     // openconnect credentials
-    readonly TextBox _ocGroup = new();   // free text; "Fetch groups" (phase 3) adds a picker
+    readonly ThemedCombo _ocGroup = new() { Editable = true };   // type or pick; Fetch groups fills the list
     readonly TextBox _ocServerCert = new();
     // Per-group 2FA requirement from the last Fetch groups. The OTP prompt keys off
     // the CURRENTLY selected group (see NeedsOtp), not a sticky single flag — so
@@ -278,7 +278,7 @@ sealed class ProfileEditorForm : Form
                     else if (error != null)
                         MessageBox.Show(this, error, "VpncBar", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     else
-                        ShowGroupPicker(groups!);
+                        FillGroups(groups!);
                 });
             }
             catch (InvalidOperationException) { /* form closed */ }
@@ -350,25 +350,15 @@ sealed class ProfileEditorForm : Form
         }
     }
 
-    void ShowGroupPicker(List<(string Group, bool Otp)> groups)
+    // Fill the Auth-group dropdown with the fetched names and remember each group's
+    // 2FA flag (NeedsOtp reads it for the current selection). Default to the first
+    // group if none is set yet — mac parity (fetchGroups()).
+    void FillGroups(List<(string Group, bool Otp)> groups)
     {
-        var menu = new ContextMenuStrip { ShowImageMargin = false };
-        if (Application.IsDarkModeEnabled)
-        {
-            menu.BackColor = Theme.Surface;
-            menu.ForeColor = Theme.Text;
-        }
         _groupOtp.Clear();
-        foreach (var (g, o) in groups) _groupOtp[g] = o;   // remember every group's 2FA flag
-        foreach (var (group, otp) in groups)
-        {
-            var item = new ToolStripMenuItem(otp ? $"{group}   (2FA)" : group);
-            if (Application.IsDarkModeEnabled) item.ForeColor = Theme.Text;
-            item.Click += (_, _) => _ocGroup.Text = group;   // OTP is derived per-group (NeedsOtp)
-            menu.Items.Add(item);
-        }
-        menu.Closed += (_, _) => BeginInvoke(menu.Dispose);   // deferred — never mid-dispatch
-        menu.Show(_fetch, 0, _fetch.Height);
+        _ocGroup.Items.Clear();
+        foreach (var (g, o) in groups) { _groupOtp[g] = o; _ocGroup.Items.Add(g); }
+        if (string.IsNullOrWhiteSpace(_ocGroup.Text)) _ocGroup.Text = groups[0].Group;
     }
 
     // ----- Info tab (live tunnel state, mac parity) -----

@@ -15,7 +15,7 @@ static class OtpPrompt
             MaximizeBox = false,
             MinimizeBox = false,
             ShowInTaskbar = false,
-            ClientSize = new Size(320, 88),
+            ClientSize = new Size(240, 88),
             TopMost = true,
         };
         var box = new TextBox();
