@@ -726,13 +726,38 @@ sealed class ProfileEditorForm : Form
         _optsOc.Visible = oc;
     }
 
-    // Gray out the credential fields that don't apply to the selected authmode.
+    // Fade (don't OS-disable) the credential fields that don't apply to the chosen
+    // authmode. A disabled WinForms TextBox renders as a harsh gray box on Windows
+    // 10; a soft text/label dim matches the macOS fade and looks identical on 10
+    // and 11. Fields stay editable so values survive a mode switch — Build()/Save
+    // only ever emit what the authmode actually uses.
     void ApplyAuthmode()
     {
         var mode = (string)(_authmode.SelectedItem ?? "psk");
-        _secret.Enabled = mode == "psk";
-        _caFile.Enabled = mode is "hybrid" or "cert";
-        _clientCert.Enabled = mode == "cert" || IsOc;   // openconnect always allows a client cert
+        Dim(_secret, mode == "psk");
+        Dim(_caFile, mode is "hybrid" or "cert");
+        Dim(_clientCert, mode == "cert" || IsOc);   // openconnect always allows a client cert
+    }
+
+    // Dim a field's text + its row label when it doesn't apply; the browse/eye
+    // accessory is OS-disabled (a button greys cleanly), but the textbox itself
+    // stays enabled so it never shows the gray "disabled box".
+    static void Dim(TextBox tb, bool applies)
+    {
+        var color = applies
+            ? (Application.IsDarkModeEnabled ? Theme.Text : SystemColors.WindowText)
+            : Theme.TextDisabled;
+        tb.ForeColor = color;
+        if (tb.Parent is { } field)
+        {
+            foreach (Control c in field.Controls)
+                if (c != tb) c.Enabled = applies;   // browse/eye accessory
+            if (field.Parent is TableLayoutPanel grid)
+            {
+                var label = grid.GetControlFromPosition(0, grid.GetPositionFromControl(field).Row);
+                if (label != null) label.ForeColor = color;
+            }
+        }
     }
 
     // ----- load / save -----
