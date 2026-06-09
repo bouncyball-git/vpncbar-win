@@ -37,12 +37,15 @@ ArchitecturesInstallIn64BitMode=x64compatible
 [Files]
 Source: "..\app\VpncBar.exe";         DestDir: "{app}";          Flags: ignoreversion
 Source: "..\app\vpncbar-script.js";   DestDir: "{app}";          Flags: ignoreversion
+Source: "..\..\scripts\dns-info.ps1"; DestDir: "{app}";          Flags: ignoreversion
 Source: "..\backend\*";               DestDir: "{app}\backend";  Flags: ignoreversion recursesubdirs
 Source: "..\..\vendor\NOTICE";                DestDir: "{app}";              DestName: "NOTICE.txt"; Flags: ignoreversion
 Source: "..\..\LICENSE";                      DestDir: "{app}";              DestName: "LICENSE.txt"; Flags: ignoreversion isreadme skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\VpncBar";          Filename: "{app}\{#AppExe}"
+; Read-only DNS / split-DNS diagnostic; opens a PowerShell window with the report.
+Name: "{group}\DNS Info";         Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -NoExit -File ""{app}\dns-info.ps1"""; Comment: "Show the current Windows DNS / split-DNS configuration"
 
 [Tasks]
 Name: autostart; Description: "Start VpncBar automatically at login"; GroupDescription: "Startup:"

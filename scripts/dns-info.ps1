@@ -10,13 +10,26 @@ $ErrorActionPreference = 'SilentlyContinue'
 
 function Section($t) { Write-Host "`n=== $t ===" -ForegroundColor Cyan }
 
-Section 'Per-interface DNS servers'
-Get-DnsClientServerAddress | Where-Object { $_.ServerAddresses } |
-    Sort-Object InterfaceAlias |
-    Select-Object InterfaceAlias, InterfaceIndex,
-        @{n = 'Family';     e = { if ($_.AddressFamily -eq 23) { 'IPv6' } else { 'IPv4' } } },
-        @{n = 'DnsServers'; e = { $_.ServerAddresses -join ', ' } } |
-    Format-Table -Auto
+Section 'Per-interface DNS servers (real servers only)'
+# fec0:0:0:ffff::1-3 are Windows' hardcoded default IPv6 DNS placeholders — they
+# sit on every adapter, are never actually queried, and only add noise. Strip them
+# so what's left is the DNS that genuinely matters.
+$placeholders = @('fec0:0:0:ffff::1', 'fec0:0:0:ffff::2', 'fec0:0:0:ffff::3')
+$rows = Get-DnsClientServerAddress | Where-Object { $_.ServerAddresses } | ForEach-Object {
+    $real = @($_.ServerAddresses | Where-Object { $_ -notin $placeholders })
+    if ($real.Count) {
+        [PSCustomObject]@{
+            InterfaceAlias = $_.InterfaceAlias
+            InterfaceIndex = $_.InterfaceIndex
+            Family         = if ($_.AddressFamily -eq 23) { 'IPv6' } else { 'IPv4' }
+            DnsServers     = $real -join ', '
+        }
+    }
+}
+if ($rows) { $rows | Sort-Object InterfaceAlias | Format-Table -Auto } else { '  (none)' }
+Write-Host '  Note: VPN tunnel adapters typically carry NO DNS here. Split-DNS is applied' -ForegroundColor DarkGray
+Write-Host '  per-domain via the NRPT table below (not global, not per-adapter), so VPN DNS' -ForegroundColor DarkGray
+Write-Host '  servers show up there mapped to their domains, not as per-interface entries.' -ForegroundColor DarkGray
 
 Section 'Per-interface DNS suffix + registration'
 Get-DnsClient | Where-Object { $_.ConnectionSpecificSuffix -or $_.RegisterThisConnectionsAddress } |
