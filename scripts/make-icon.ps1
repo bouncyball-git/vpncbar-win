@@ -14,8 +14,11 @@ $ErrorActionPreference = 'Stop'
 # 1. Build so the exe reflects the current embedded SVG art.
 & "$PSScriptRoot\build-app.ps1" -Debug
 
-# 2. Render the multi-size .ico from those SVGs.
-& "$PSScriptRoot\..\src\bin\Debug\net10.0-windows\VpncBar.exe" --make-icon $Out
+# 2. Render the multi-size .ico from those SVGs. VpncBar.exe is a GUI-subsystem
+#    app, so "& exe" returns immediately — Start-Process -Wait actually blocks
+#    until the .ico is written before the embedding rebuild below.
+Start-Process "$PSScriptRoot\..\src\bin\Debug\net10.0-windows\VpncBar.exe" `
+    -ArgumentList '--make-icon', $Out -Wait -NoNewWindow
 
 # 3. Rebuild so the freshly written .ico is embedded as the exe/taskbar icon.
 & "$PSScriptRoot\build-app.ps1" -Debug
