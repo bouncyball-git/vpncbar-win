@@ -9,8 +9,11 @@
 #
 # Result: dist\setup\VpncBar-<version>-setup.exe
 #
-#   .\build-all.ps1          build everything (reuses an existing toolchain)
-#   .\build-all.ps1 -Force   also reprovision the toolchain from scratch
+#   .\build-all.ps1          build, reusing already-done work (toolchain, fetched
+#                            wintun, and the compiled openconnect); vpnc's make is
+#                            incremental, and the app + installer always rebuild.
+#   .\build-all.ps1 -Force   full from-scratch rebuild (reprovision toolchain,
+#                            refetch wintun, recompile both backends)
 param([switch]$Force)
 
 $ErrorActionPreference = 'Stop'
@@ -30,13 +33,13 @@ Step 1 'Provision MSYS2 toolchain'
 if ($Force) { & "$PSScriptRoot\setup-msys.ps1" -Force } else { & "$PSScriptRoot\setup-msys.ps1" }
 
 Step 2 'Fetch Wintun'
-& "$PSScriptRoot\fetch-wintun.ps1"
+if ($Force) { & "$PSScriptRoot\fetch-wintun.ps1" -Force } else { & "$PSScriptRoot\fetch-wintun.ps1" }
 
 Step 3 'Build openconnect'
-& "$PSScriptRoot\build-openconnect.ps1"
+if ($Force) { & "$PSScriptRoot\build-openconnect.ps1" -Force } else { & "$PSScriptRoot\build-openconnect.ps1" }
 
 Step 4 'Build vpnc'
-& "$PSScriptRoot\build-vpnc.ps1"
+if ($Force) { & "$PSScriptRoot\build-vpnc.ps1" -Force } else { & "$PSScriptRoot\build-vpnc.ps1" }
 
 Step 5 'Publish app + build installer'
 & "$PSScriptRoot\build-installer.ps1"

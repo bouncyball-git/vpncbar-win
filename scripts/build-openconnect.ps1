@@ -3,13 +3,23 @@
 # Requires MSYS2 at vendor\msys64 (or a global C:\msys64) with:
 #   pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-pkgconf \
 #       mingw-w64-x86_64-gnutls mingw-w64-x86_64-libxml2 mingw-w64-x86_64-zlib make
-param([string]$Version = '9.12')
+param([string]$Version = '9.12', [switch]$Force)
 
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path "$PSScriptRoot\.."
 $oc = "$root\vendor\openconnect"
 $eng = "$root\dist\backend"
 $tarball = "$oc\src\openconnect-$Version.tar.gz"
+
+# Skip the (slow, ~2-3 min) from-scratch compile if openconnect is already built
+# AND the recorded build version matches the requested one — so a -Version bump
+# still rebuilds, but a plain rerun is instant. -Force always rebuilds.
+if (-not $Force -and (Test-Path "$eng\openconnect.exe") -and (Test-Path "$oc\VERSIONS.txt") -and
+    ((Get-Content "$oc\VERSIONS.txt" -Raw) -match "openconnect $([regex]::Escape($Version)) ")) {
+    "openconnect $Version already built -> $eng (use -Force to rebuild)"
+    return
+}
+
 # Prefer the vendored MSYS2 (vendor\msys64); fall back to a global C:\msys64.
 $msys = "$root\vendor\msys64"
 if (-not (Test-Path "$msys\usr\bin\bash.exe")) { $msys = 'C:\msys64' }

@@ -4,6 +4,11 @@
 # closure is not duplicated (ldd + cp -n dedups). Requires MSYS2 at vendor\msys64 (or a global C:\msys64):
 #   pacman -S --needed mingw-w64-x86_64-{gcc,libgcrypt,gnutls,pkgconf} make perl
 # and vendor/wintun/wintun.h present (fetch-wintun.ps1).
+#
+# No skip-if-built guard here on purpose: make is already incremental, so a
+# rerun recompiles only what changed in vendor/vpnc/src (and no-ops in seconds
+# when nothing did). -Force does a `make clean` first for a true from-scratch.
+param([switch]$Force)
 
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path "$PSScriptRoot\.."
@@ -19,10 +24,13 @@ Copy-Item "$root\vendor\wintun\bin\amd64\wintun.dll" "$root\dist\backend\" -Forc
 
 # Build vpnc.exe, then add it + its mingw DLL closure to the shared backend dir
 # (ldd over everything already there converges the union across both backends).
+$cleanLine = ''
+if ($Force) { $cleanLine = 'make -f Makefile.win32 clean' }   # -Force: from-scratch
 $env:MSYSTEM = 'MINGW64'
 & $bash -lc @"
 set -e
 cd $rootMsys/vendor/vpnc/src
+$cleanLine
 make -f Makefile.win32 -j8
 cp vpnc.exe $rootMsys/dist/backend/
 cd $rootMsys/dist/backend
