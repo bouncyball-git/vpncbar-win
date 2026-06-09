@@ -168,6 +168,18 @@ sealed class TunnelManager(Action<string> log)
     {
         var psi = new ProcessStartInfo { FileName = Backends.VpncExe };
         psi.ArgumentList.Add("--non-inter");
+        // Windows-only necessity. Windows' kernel IPsec demuxes inbound ESP-in-UDP
+        // on port 4500, finds no kernel SA (vpnc's is in user space), and drops the
+        // gateway's return ESP — so a vpnc NAT-T tunnel connects but passes no data.
+        // vpnc's NAT-T float (vpnc.c) only rewrites the local port to 4500 when it's
+        // the default 500; any other local port is kept while it still targets
+        // gateway:4500. Binding a non-4500 local port makes the reply land on a dest
+        // port Windows doesn't demux, so it reaches vpnc's socket untouched. "0" =
+        // an OS-assigned ephemeral port: never 500/4500, unique per simultaneous
+        // tunnel, and it also forces NAT-T (the only way userspace ESP is received
+        // on Windows). The macOS app needs none of this; macOS has no such demux.
+        psi.ArgumentList.Add("--local-port");
+        psi.ArgumentList.Add("0");
         psi.ArgumentList.Add("-");                          // config on stdin
         psi.Environment["VPNCBAR_UUID"] = uuid;             // --script: .info/NRPT tag
         psi.Environment["VPNCBAR_STOP_EVENT"] = stopEvent;  // graceful disconnect (SIGTERM analog)

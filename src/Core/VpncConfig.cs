@@ -58,7 +58,12 @@ static class VpncConfig
         Add("DPD idle timeout (our side)", p.DpdTimeout);
         Add("Debug", p.Debug);
         // Interface mode left default (tun → Wintun). App version / Local Addr /
-        // Local Port / UDP Encap Port left to vpnc's automatic defaults.
+        // UDP Encap Port left to vpnc's automatic defaults. Local Port is NOT
+        // emitted here on purpose: the service forces "--local-port 0" on the vpnc
+        // command line (TunnelManager) — mandatory on Windows so the kernel NAT-T
+        // demux doesn't swallow the return ESP. The profiles.json `localPort` field
+        // is a mac/Linux knob; it round-trips here but Windows always uses 0, and
+        // keeping it out of the config means a mac-set "500" can't re-break Windows.
         if (p.EnableWeak ?? true) lines.Add("Enable weak encryption");   // defaults ON (mac parity)
         if (p.SingleDES ?? false) lines.Add("Enable Single DES");
         if (p.NoEncryption ?? false) lines.Add("Enable no encryption");
